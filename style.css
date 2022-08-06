@@ -1,0 +1,12 @@
+* {
+    padding: 0px;
+    margin : 0px;
+    font-family: Arial, sans-serif;
+}
+#header {
+    display:flex;
+    flex-wrap: wrap;
+    align-items: center;
+    
+}
+
