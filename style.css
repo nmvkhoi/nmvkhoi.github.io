@@ -4,9 +4,15 @@
     font-family: Arial, sans-serif;
 }
 #header {
-    display:flex;
+    display: flex;
     
     align-items: center;
     flex-wrap: wrap;
+    justify-content: space-between;
 }
+a{
+    text-decoration: none;
+    color: #000;
+}
+
 
