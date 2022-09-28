@@ -11,6 +11,18 @@
     flex-wrap: wrap;
     justify-content: space-between;
 }
+@media only screen and (max-width: 600px) {
+    body {
+        background-color: #f2f2f2;
+        width: 100%;
+        margin: auto;
+    }
+    hr{
+        border-right: 0px;
+        border-left: 0px;
+        box-sizing: border-box;
+    }
+}
 a{
     text-decoration: none;
     color: #000;
