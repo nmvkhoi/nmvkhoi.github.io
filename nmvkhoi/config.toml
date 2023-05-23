@@ -1,6 +1,4 @@
-baseURL = 'https://nmvkhoi.github.io/'
-languageCode = 'vi-vn'
+baseURL = 'http://example.org/'
+languageCode = 'en-us'
 title = 'nmvkhoi'
-
 theme = 'hermit'
-
