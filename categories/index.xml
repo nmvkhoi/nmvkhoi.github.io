@@ -22,5 +22,17 @@
         
 
         
+            
+        <item>
+          <title>My first blog post</title>
+          <link>https://nmvkhoi.github.io/posts/mypost/</link>
+          <pubDate>Mon, 28 Aug 2023 16:30:20 +0700</pubDate>
+          
+          <guid>https://nmvkhoi.github.io/posts/mypost/</guid>
+          <description>Hi there, this is my first blog post.
+public static void main(String[] args) { System.out.println(&quot;Hello World!&quot;); }</description>
+        </item>
+            
+        
     </channel>
 </rss>
