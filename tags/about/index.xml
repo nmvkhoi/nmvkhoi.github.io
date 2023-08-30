@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>about on nmvkhoi</title>
+    <link>https://nmvkhoi.github.io/tags/about/</link>
+    <description>Recent content in about on nmvkhoi</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Wed, 30 Aug 2023 10:53:30 +0700</lastBuildDate><atom:link href="https://nmvkhoi.github.io/tags/about/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>whoami</title>
+      <link>https://nmvkhoi.github.io/about/</link>
+      <pubDate>Wed, 30 Aug 2023 10:53:30 +0700</pubDate>
+      
+      <guid>https://nmvkhoi.github.io/about/</guid>
+      <description>Hey there, this is Khoi. Probality, you are here because you want to know more about me. So, let&amp;rsquo;s get started.
+I am a junior at HCMIU. I am currently pursuing Computer Science. I am interested in web development, security and so on. Beside tech, i also enjoy movies, music and books. I&amp;rsquo;m making this blog to share my knowledge and experience. Hopefully, you will find something useful here.
+Btw I use arch.</description>
+    </item>
+    
+  </channel>
+</rss>
