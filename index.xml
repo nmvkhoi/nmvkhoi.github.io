@@ -8,6 +8,17 @@
     <language>en-us</language>
     <lastBuildDate>Thu, 25 Aug 2022 21:30:04 +0800</lastBuildDate><atom:link href="https://nmvkhoi.github.io/index.xml" rel="self" type="application/rss+xml" />
     <item>
+      <title>ASCIS warm up 2023 write up</title>
+      <link>https://nmvkhoi.github.io/posts/ascis-warm-up-write-up/</link>
+      <pubDate>Sat, 07 Oct 2023 23:48:30 +0700</pubDate>
+      
+      <guid>https://nmvkhoi.github.io/posts/ascis-warm-up-write-up/</guid>
+      <description>Introduction This is my write up for ASCIS warm up CTF 2021. I will only write about the pwn challenges.
+Challenge pwn 1 At first, i will check the properties of the binary file with checksec.
+checksec --file=pwn Challenge pwn 2 </description>
+    </item>
+    
+    <item>
       <title>Hello, World!</title>
       <link>https://nmvkhoi.github.io/posts/post/</link>
       <pubDate>Wed, 30 Aug 2023 10:53:30 +0700</pubDate>
