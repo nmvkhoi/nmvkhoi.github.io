@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
    <meta name="description" content="Introduction This is my write up for ASCIS warm up CTF 2021. I will only write about the pwn challenges.
 Challenge pwn 1 At first, i will check the properties of the binary file with checksec.
-checksec --file=pwn Challenge pwn 2 ">  
+checksec --file=pwn As you can see, the file is not protected by stack canary. So we can use buffer overflow to crack the program. I will use ghidra to decompile the binary file.
+void main(EVP_PKEY_CTX *param_1) { int local_c; init(param_1); puts(&#34;Welcome to the Asean student\&#39;s contest!">  
 
   <title>
     
@@ -43,8 +44,133 @@ checksec --file=pwn Challenge pwn 2 ">
 <p>At first, i will check the properties of the binary file with checksec.</p>
 <pre tabindex="0"><code>checksec --file=pwn
 </code></pre><p><img src="/img/ascis-warm-up-write-up/checksec.png" alt="checksec"></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"></code></pre></div><h3 id="challenge-pwn-2">Challenge pwn 2</h3>
-
+<p>As you can see, the file is not protected by stack canary. So we can use buffer overflow to crack the program. I will use ghidra to decompile the binary file.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span>(EVP_PKEY_CTX <span style="color:#f92672">*</span>param_1)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> local_c;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  init(param_1);
+</span></span><span style="display:flex;"><span>  puts(<span style="color:#e6db74">&#34;Welcome to the Asean student</span><span style="color:#ae81ff">\&#39;</span><span style="color:#e6db74">s contest!&#34;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">do</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span>( true ) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">while</span>( true ) {
+</span></span><span style="display:flex;"><span>        help();
+</span></span><span style="display:flex;"><span>        __isoc99_scanf(<span style="color:#f92672">&amp;</span>DAT_00400d80,<span style="color:#f92672">&amp;</span>local_c);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (local_c <span style="color:#f92672">!=</span> <span style="color:#ae81ff">2</span>) <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>        Signup();
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#ae81ff">2</span> <span style="color:#f92672">&lt;</span> local_c) <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (local_c <span style="color:#f92672">==</span> <span style="color:#ae81ff">1</span>) {
+</span></span><span style="display:flex;"><span>        Login();
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>LAB_00400ba5:
+</span></span><span style="display:flex;"><span>        puts(<span style="color:#e6db74">&#34;Thank you for your coming!!&#34;</span>);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (local_c <span style="color:#f92672">==</span> <span style="color:#ae81ff">3</span>) {
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* WARNING: Subroutine does not return */</span>
+</span></span><span style="display:flex;"><span>      exit(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (local_c <span style="color:#f92672">!=</span> <span style="color:#ae81ff">4</span>) <span style="color:#66d9ef">goto</span> LAB_00400ba5;
+</span></span><span style="display:flex;"><span>    getflag();
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">while</span>( true );
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>The program is quite straight forward. There are four options for you to choose. The first option is to login. The second option is to signup. The third option is to exit the program. The last option is to get the flag.</p>
+<p>Let&rsquo;s have a look in the getflag function.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">getflag</span>(<span style="color:#66d9ef">void</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> iVar1;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">char</span> local_38 [<span style="color:#ae81ff">44</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> local_c;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  iVar1 <span style="color:#f92672">=</span> strcmp(<span style="color:#f92672">&amp;</span>old_user,<span style="color:#e6db74">&#34;admin&#34;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (iVar1 <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  local_c <span style="color:#f92672">=</span> open(<span style="color:#e6db74">&#34;/home/pwn01/flag&#34;</span>,<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (local_c <span style="color:#f92672">==</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>) {
+</span></span><span style="display:flex;"><span>    puts(<span style="color:#e6db74">&#34;Contact to author&#34;</span>);
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* WARNING: Subroutine does not return */</span>
+</span></span><span style="display:flex;"><span>    exit(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  read(local_c,local_38,<span style="color:#ae81ff">0x1e</span>);
+</span></span><span style="display:flex;"><span>  puts(local_38);
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* WARNING: Subroutine does not return */</span>
+</span></span><span style="display:flex;"><span>  exit(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>From the given function, i can infer that the flag is stored in the file flag. The flag will be printed out if the username is admin. Furthermore, i found that the <code>&amp;old_user</code> is the username that you are last signup.
+So let dive into the signup function to make an admin account.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>undefined8 <span style="color:#a6e22e">Signup</span>(<span style="color:#66d9ef">void</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">int</span> iVar1;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">char</span> local_88 [<span style="color:#ae81ff">64</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">char</span> local_48 [<span style="color:#ae81ff">64</span>];
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  puts(<span style="color:#e6db74">&#34;Enter your username:&#34;</span>);
+</span></span><span style="display:flex;"><span>  __isoc99_scanf(<span style="color:#f92672">&amp;</span>DAT_00400c93,local_48);
+</span></span><span style="display:flex;"><span>  iVar1 <span style="color:#f92672">=</span> strcmp(local_48,<span style="color:#e6db74">&#34;admin&#34;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (iVar1 <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>    puts(<span style="color:#e6db74">&#34;You can</span><span style="color:#ae81ff">\&#39;</span><span style="color:#e6db74">t register with admin&#34;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>    iVar1 <span style="color:#f92672">=</span> strcmp(local_48,<span style="color:#f92672">&amp;</span>old_user);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (iVar1 <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>      puts(<span style="color:#e6db74">&#34;Username is already exists&#34;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>      puts(<span style="color:#e6db74">&#34;Enter your passwd:&#34;</span>);
+</span></span><span style="display:flex;"><span>      __isoc99_scanf(<span style="color:#f92672">&amp;</span>DAT_00400c93,local_88);
+</span></span><span style="display:flex;"><span>      puts(<span style="color:#e6db74">&#34;Sign up success&#34;</span>);
+</span></span><span style="display:flex;"><span>      memset(<span style="color:#f92672">&amp;</span>old_user,<span style="color:#ae81ff">0</span>,<span style="color:#ae81ff">0x32</span>);
+</span></span><span style="display:flex;"><span>      memset(<span style="color:#f92672">&amp;</span>old_passwd,<span style="color:#ae81ff">0</span>,<span style="color:#ae81ff">0x32</span>);
+</span></span><span style="display:flex;"><span>      strncpy(<span style="color:#f92672">&amp;</span>old_user,local_48,<span style="color:#ae81ff">0x32</span>);
+</span></span><span style="display:flex;"><span>      strncpy(<span style="color:#f92672">&amp;</span>old_passwd,local_88,<span style="color:#ae81ff">0x32</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Just as i guessed, the program will block you from creating an admin account. However, the program doesn&rsquo;t check length of the username and password and if you look closely to the main program, you will see that the username (local_88) and password (local_48) are stored consecutively in the memory.</p>
+<p>=&gt;  if we create a password with the length 64, we can overwrite the username with the password. Then we can login with the username admin and get the flag.</p>
+<p>With that in mind, we could overflow the password with 64 characters of garbage and following is &lsquo;admin&rsquo;.</p>
+<p><img src="/img/ascis-warm-up-write-up/image.png" alt="result"></p>
+<h3 id="challenge-pwn-2">Challenge pwn 2</h3>
+<p>Chalenge 2 is a funnier.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">main</span>(EVP_PKEY_CTX <span style="color:#f92672">*</span>param_1)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  size_t sVar1;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">char</span> local_118 [<span style="color:#ae81ff">208</span>];
+</span></span><span style="display:flex;"><span>  undefined local_48 [<span style="color:#ae81ff">64</span>];
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  init(param_1);
+</span></span><span style="display:flex;"><span>  puts(<span style="color:#e6db74">&#34;Welcome to the Asean student</span><span style="color:#ae81ff">\&#39;</span><span style="color:#e6db74">s contest!&#34;</span>);
+</span></span><span style="display:flex;"><span>  printf(<span style="color:#e6db74">&#34;Give me your name: &#34;</span>);
+</span></span><span style="display:flex;"><span>  read(<span style="color:#ae81ff">0</span>,local_48,<span style="color:#ae81ff">50</span>);
+</span></span><span style="display:flex;"><span>  puts(<span style="color:#e6db74">&#34;What do you think about the contest (feedback) ?&#34;</span>);
+</span></span><span style="display:flex;"><span>  read(<span style="color:#ae81ff">0</span>,local_118,<span style="color:#ae81ff">100</span>);
+</span></span><span style="display:flex;"><span>  sVar1 <span style="color:#f92672">=</span> strlen(local_118);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (sVar1 <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">40</span>) {
+</span></span><span style="display:flex;"><span>    puts(<span style="color:#e6db74">&#34;Feedback is too short&#34;</span>);
+</span></span><span style="display:flex;"><span>    puts(<span style="color:#e6db74">&#34;Give more feedback to get more points&#34;</span>);
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">/* WARNING: Subroutine does not return */</span>
+</span></span><span style="display:flex;"><span>    exit(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  puts(<span style="color:#e6db74">&#34;Thank you for your feecback&#34;</span>);
+</span></span><span style="display:flex;"><span>  puts(<span style="color:#e6db74">&#34;Have a nice day&#34;</span>);
+</span></span><span style="display:flex;"><span>  getflag(local_118);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">getflag</span>(code <span style="color:#f92672">*</span>param_1)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  (<span style="color:#f92672">*</span>param_1)();
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div>
 </article>
 
             </div>

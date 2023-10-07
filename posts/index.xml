@@ -15,7 +15,8 @@
       <guid>https://nmvkhoi.github.io/posts/ascis-warm-up-write-up/</guid>
       <description>Introduction This is my write up for ASCIS warm up CTF 2021. I will only write about the pwn challenges.
 Challenge pwn 1 At first, i will check the properties of the binary file with checksec.
-checksec --file=pwn Challenge pwn 2 </description>
+checksec --file=pwn As you can see, the file is not protected by stack canary. So we can use buffer overflow to crack the program. I will use ghidra to decompile the binary file.
+void main(EVP_PKEY_CTX *param_1) { int local_c; init(param_1); puts(&amp;#34;Welcome to the Asean student\&amp;#39;s contest!</description>
     </item>
     
     <item>
