@@ -52,7 +52,8 @@ hugo new site .
 ```
 
 This creates the basic Hugo directory structure:
-```
+
+```bash
 my-blog-source/
 ├── archetypes/
 ├── assets/
