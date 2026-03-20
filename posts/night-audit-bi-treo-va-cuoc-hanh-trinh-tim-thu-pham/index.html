@@ -126,19 +126,19 @@ After:  1 query lấy tất cả reasons → tra cứu từ Map O(1)
 <p><code>Promise.all()</code> được dùng để fetch 4 nguồn dữ liệu cùng lúc. Thay vì tổng cộng ~~5-6 giây tuần tự, giờ chỉ mất thời gian của request chậm nhất (~~2 giây). Puppeteer không còn bị timeout trước khi nhận được dữ liệu.</p>
 <ul>
 <li>Pros: giảm latency đáng kể, tránh timeout ✅</li>
-<li>Cons: nếu một trong bốn request fail, <code>Promise.all</code> sẽ reject ngay — cần đảm bảo error handling tốt ở tầng trên ⚠️</li>
+<li>Cons: nếu một trong bốn request fail, <code>Promise.all</code> sẽ reject ngay — cần đảm bảo error handling tốt ở tầng trên</li>
 </ul>
 <p><strong>2. Batch query — thay N queries bằng 1</strong></p>
 <p>Thay vì <code>findOne</code> trong loop, dùng <code>findAll</code> với <code>IN (id1, id2, ...)</code> rồi build Map. Đây là cách xử lý chuẩn cho N+1 problem.</p>
 <ul>
-<li>Pros: giảm từ hàng trăm queries xuống còn 1, database không bị stress ✅</li>
-<li>Cons: nếu số lượng <code>uniqueIds</code> rất lớn (vài nghìn), câu <code>IN</code> cũng có thể chậm — cần thêm index trên cột <code>id</code> (thường đã có sẵn là PK) ⚠️</li>
+<li>Pros: giảm từ hàng trăm queries xuống còn 1, database không bị stress</li>
+<li>Cons: nếu số lượng <code>uniqueIds</code> rất lớn (vài nghìn), câu <code>IN</code> cũng có thể chậm — cần thêm index trên cột <code>id</code> (thường đã có sẵn là PK)</li>
 </ul>
 <p><strong>3. Strict error propagation — lỗi phải được nhìn thấy</strong></p>
 <p>Không còn <code>return ''</code> trong catch block. Tất cả lỗi được throw, và caller validate output trước khi tiếp tục. Silent failures là nguồn gốc của nhiều bug khó debug nhất.</p>
 <ul>
-<li>Pros: fail fast, dễ alert, dễ tìm nguyên nhân ✅</li>
-<li>Cons: cần đảm bảo tất cả caller đều có try-catch phù hợp, không để lỗi uncaught đến tay end-user ⚠️</li>
+<li>Pros: fail fast, dễ alert, dễ tìm nguyên nhân</li>
+<li>Cons: cần đảm bảo tất cả caller đều có try-catch phù hợp, không để lỗi uncaught đến tay end-user</li>
 </ul>
 <hr>
 <h2 id=phần-4-kiến-thức-đại-học-ứng-dụng>Phần 4: Kiến Thức Đại Học Ứng Dụng</h2>
@@ -161,7 +161,6 @@ After:  1 query lấy tất cả reasons → tra cứu từ Map O(1)
 <li><strong>Ngày tháng trong báo cáo lịch sử phải dùng ngày của báo cáo, không phải <code>new Date()</code>.</strong> Tưởng hiển nhiên, nhưng rất dễ quên khi copy-paste function từ use-case real-time sang use-case historical.</li>
 </ul>
 <hr>
-<p>#DevLife #TechBlog #NodeJS #Performance #NightAudit #N1Query #PromiseAll #DatabaseOptimization</p>
 </article>
 </div>
 </main>
