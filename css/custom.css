@@ -1,8 +1,8 @@
-/* Center the content on the page */
+/* Center the content in the middle of the page */
 .page-content {
     display: flex;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center;
     min-height: 100vh;
     padding: 20px;
 }
