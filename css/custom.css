@@ -1,0 +1,75 @@
+/* Center the content on the page */
+.page-content {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.w {
+    max-width: 800px;
+    width: 100%;
+}
+
+/* Style the navigation */
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+ul li {
+    margin: 10px 0;
+}
+
+ul ul {
+    margin-left: 20px;
+    margin-top: 5px;
+}
+
+ul ul li {
+    margin: 5px 0;
+}
+
+/* Style links */
+a {
+    color: #007acc;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Style dates */
+span {
+    color: #666;
+    font-size: 0.9em;
+}
+
+/* Style articles */
+article {
+    line-height: 1.6;
+    margin-top: 20px;
+}
+
+article h1 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+/* Style code blocks */
+pre {
+    background: #f4f4f4;
+    padding: 15px;
+    border-radius: 5px;
+    overflow-x: auto;
+    margin: 15px 0;
+}
+
+code {
+    background: #f4f4f4;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+}
