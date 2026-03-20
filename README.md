@@ -45,7 +45,7 @@ mkdir my-blog-source
 cd my-blog-source
 ```
 
-2. Initialize a new Hugo site
+2.Initialize a new Hugo site
 
 ```bash
 hugo new site .
