@@ -1,14 +1,25 @@
-/* Center the content in the middle of the page */
-.page-content {
+/* Reset and center the entire page */
+html {
+    height: 100%;
+}
+
+body {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
+    margin: 0 !important;
     padding: 20px;
 }
 
+.page-content {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
 .w {
-    max-width: 800px;
+    max-width: 640px;
     width: 100%;
 }
 
