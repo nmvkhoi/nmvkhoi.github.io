@@ -48,8 +48,8 @@ a:hover {
     text-decoration: underline;
 }
 
-/* Style dates */
-span {
+/* Style dates in post list */
+ul li span {
     color: black;
     font-size: 0.9em;
 }
@@ -65,7 +65,6 @@ article h1 {
     color: #333;
 }
 
-/* Style code blocks - Catppuccin Latte Theme */
 pre,
 .chroma {
     background: #eff1f5 !important;
@@ -75,6 +74,14 @@ pre,
     overflow-x: auto;
     margin: 15px 0;
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    white-space: pre !important; /* Force pre-formatting for exact alignment */
+    line-height: 1.5 !important; /* Consistent vertical spacing */
+}
+
+/* Ensure tokens inside don't inherit layouts that break things */
+.chroma span {
+    display: inline !important;
+    font-size: 1em !important; /* Reset any global span font-size */
 }
 
 /* Chroma syntax highlighting classes - Catppuccin Latte */
