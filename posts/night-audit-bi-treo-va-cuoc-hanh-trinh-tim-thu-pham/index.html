@@ -34,92 +34,92 @@ Night Audit Bị Treo Và Cuộc Hành Trình Tìm Thủ Phạm
 <h3 id=thủ-phạm-số-1-các-lời-gọi-database-đứng-thành-hàng-dọc>Thủ phạm số 1: Các lời gọi database đứng thành hàng dọc</h3>
 <p>Night audit cần xuất hai loại báo cáo: <strong>Block Room Report</strong> và <strong>Room Discrepancy Report</strong>. Mỗi báo cáo cần dữ liệu từ nhiều nguồn: lịch sử block phòng, log discrepancy, màu trạng thái phòng, thông tin khách sạn.</p>
 <p>Code cũ làm theo kiểu&mldr; đứng chờ từng người một:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-js data-lang=js><span style=color:#93a1a1;font-style:italic>// Cách cũ: chờ xong cái này mới làm cái kia
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>blockRoomData</span> = <span style=color:#859900>await</span> <span style=color:#268bd2>fetchBlockRoomHistory</span>(...)     <span style=color:#93a1a1;font-style:italic>// chờ 2s
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>metaData</span>      = <span style=color:#859900>await</span> <span style=color:#268bd2>getColorStatus</span>()               <span style=color:#93a1a1;font-style:italic>// chờ 500ms
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>propertyDetail</span> = <span style=color:#859900>await</span> <span style=color:#268bd2>getPropertyDetail</span>(<span style=color:#268bd2>propertyId</span>) <span style=color:#93a1a1;font-style:italic>// chờ 1s
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>roomDiscrepancyData</span> = <span style=color:#859900>await</span> <span style=color:#268bd2>fetchRoomDiscrepancy</span>(...)<span style=color:#93a1a1;font-style:italic>// chờ 2s
-</span><span style=color:#93a1a1;font-style:italic>// Tổng: ~5.5 giây chỉ để lấy dữ liệu
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-js data-lang=js><span class=c1>// Cách cũ: chờ xong cái này mới làm cái kia
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>blockRoomData</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>fetchBlockRoomHistory</span><span class=p>(...)</span>     <span class=c1>// chờ 2s
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>metaData</span>      <span class=o>=</span> <span class=kr>await</span> <span class=nx>getColorStatus</span><span class=p>()</span>               <span class=c1>// chờ 500ms
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>propertyDetail</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>getPropertyDetail</span><span class=p>(</span><span class=nx>propertyId</span><span class=p>)</span> <span class=c1>// chờ 1s
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>roomDiscrepancyData</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>fetchRoomDiscrepancy</span><span class=p>(...)</span><span class=c1>// chờ 2s
+</span><span class=c1>// Tổng: ~5.5 giây chỉ để lấy dữ liệu
 </span></code></pre></div><p>Tưởng tượng bạn đang nấu phở: thay vì đun nước, thái thịt, và ngâm bánh phở cùng lúc — bạn đun nước xong, rồi mới thái thịt, xong rồi mới ngâm bánh. Với báo cáo có dữ liệu lớn, thời gian cộng dồn lại, dễ chạm timeout của Puppeteer hoặc HTTP client, rồi process &ldquo;treo&rdquo; mà không có exception nào để bắt.</p>
 <p>Sau khi fix, bốn lời gọi đó chạy song song:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-js data-lang=js><span style=color:#93a1a1;font-style:italic>// Cách mới: tất cả cùng chạy một lúc
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> [<span style=color:#268bd2>blockRoomData</span>, <span style=color:#268bd2>roomDiscrepancyData</span>, <span style=color:#268bd2>metaData</span>, <span style=color:#268bd2>propertyDetail</span>] = <span style=color:#859900>await</span> <span style=color:#cb4b16>Promise</span>.<span style=color:#268bd2>all</span>([
-  <span style=color:#268bd2>fetchBlockRoomHistory</span>(...),
-  <span style=color:#268bd2>fetchRoomDiscrepancy</span>(...),
-  <span style=color:#268bd2>getColorStatus</span>(),
-  <span style=color:#268bd2>getPropertyDetail</span>(<span style=color:#268bd2>propertyId</span>)
-])
-<span style=color:#93a1a1;font-style:italic>// Tổng: ~2 giây (cái lâu nhất quyết định)
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-js data-lang=js><span class=c1>// Cách mới: tất cả cùng chạy một lúc
+</span><span class=c1></span><span class=kr>const</span> <span class=p>[</span><span class=nx>blockRoomData</span><span class=p>,</span> <span class=nx>roomDiscrepancyData</span><span class=p>,</span> <span class=nx>metaData</span><span class=p>,</span> <span class=nx>propertyDetail</span><span class=p>]</span> <span class=o>=</span> <span class=kr>await</span> <span class=nb>Promise</span><span class=p>.</span><span class=nx>all</span><span class=p>([</span>
+  <span class=nx>fetchBlockRoomHistory</span><span class=p>(...),</span>
+  <span class=nx>fetchRoomDiscrepancy</span><span class=p>(...),</span>
+  <span class=nx>getColorStatus</span><span class=p>(),</span>
+  <span class=nx>getPropertyDetail</span><span class=p>(</span><span class=nx>propertyId</span><span class=p>)</span>
+<span class=p>])</span>
+<span class=c1>// Tổng: ~2 giây (cái lâu nhất quyết định)
 </span></code></pre></div><h3 id=thủ-phạm-số-2-n1-query--kẻ-giết-hiệu-năng-kinh-điển>Thủ phạm số 2: N+1 Query — Kẻ giết hiệu năng kinh điển</h3>
 <p>Room Discrepancy Report cần hiển thị lý do của từng sự chênh lệch trạng thái phòng (ví dụ: &ldquo;phòng HK báo Dirty nhưng FO báo Occupied&rdquo;). Mỗi dòng log có thể có nhiều <code>reasonId</code>.</p>
 <p>Code cũ xử lý thế này:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-js data-lang=js><span style=color:#93a1a1;font-style:italic>// Với MỖI dòng log, với MỖI reasonId:
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>for</span> (<span style=color:#859900>let</span> <span style=color:#268bd2>row</span> <span style=color:#859900>of</span> <span style=color:#268bd2>data</span>) {
-  <span style=color:#859900>for</span> (<span style=color:#859900>let</span> <span style=color:#268bd2>reasonId</span> <span style=color:#859900>of</span> <span style=color:#268bd2>row</span>.<span style=color:#268bd2>extraData</span>.<span style=color:#268bd2>reasonId</span>) {
-    <span style=color:#859900>const</span> <span style=color:#268bd2>reason</span> = <span style=color:#859900>await</span> <span style=color:#268bd2>DB</span>.<span style=color:#268bd2>ConfigDiscrepancyReason</span>.<span style=color:#268bd2>findOne</span>({
-      <span style=color:#268bd2>where</span>: { <span style=color:#268bd2>id</span>: <span style=color:#268bd2>reasonId</span> }
-    })
-    <span style=color:#93a1a1;font-style:italic>// xong rồi mới xử lý tiếp
-</span><span style=color:#93a1a1;font-style:italic></span>  }
-}
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-js data-lang=js><span class=c1>// Với MỖI dòng log, với MỖI reasonId:
+</span><span class=c1></span><span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>row</span> <span class=k>of</span> <span class=nx>data</span><span class=p>)</span> <span class=p>{</span>
+  <span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>reasonId</span> <span class=k>of</span> <span class=nx>row</span><span class=p>.</span><span class=nx>extraData</span><span class=p>.</span><span class=nx>reasonId</span><span class=p>)</span> <span class=p>{</span>
+    <span class=kr>const</span> <span class=nx>reason</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>DB</span><span class=p>.</span><span class=nx>ConfigDiscrepancyReason</span><span class=p>.</span><span class=nx>findOne</span><span class=p>({</span>
+      <span class=nx>where</span><span class=o>:</span> <span class=p>{</span> <span class=nx>id</span><span class=o>:</span> <span class=nx>reasonId</span> <span class=p>}</span>
+    <span class=p>})</span>
+    <span class=c1>// xong rồi mới xử lý tiếp
+</span><span class=c1></span>  <span class=p>}</span>
+<span class=p>}</span>
 </code></pre></div><p>Nếu có 100 dòng log, mỗi dòng có 3 reason — hệ thống thực hiện 300 lần query database. Đây là <strong>N+1 query problem</strong> — một trong những bẫy kinh điển nhất của ORM. Giống như đi siêu thị mua 300 món mà mỗi lần chỉ mua 1 thứ, đi về rồi lại ra, đi về rồi lại ra.</p>
 <pre tabindex=0><code>Before: 300 dòng log × 3 reasonId = 900 queries database
 After:  1 query lấy tất cả reasons → tra cứu từ Map O(1)
 </code></pre><p>Cách fix: thu thập hết tất cả <code>reasonId</code> unique, query <strong>1 lần duy nhất</strong>, build một <code>Map</code> trong memory, rồi tra cứu từ đó:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-js data-lang=js><span style=color:#93a1a1;font-style:italic>// Bước 1: gom hết reasonId từ tất cả các dòng
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>allReasonIds</span> = <span style=color:#268bd2>rows</span>.<span style=color:#268bd2>flatMap</span>(<span style=color:#268bd2>r</span> =&gt; <span style=color:#268bd2>r</span>.<span style=color:#268bd2>extraDataObj</span>?.<span style=color:#268bd2>reasonId</span> || [])
-<span style=color:#859900>const</span> <span style=color:#268bd2>uniqueIds</span> = [...<span style=color:#859900>new</span> <span style=color:#268bd2>Set</span>(<span style=color:#268bd2>allReasonIds</span>)]
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-js data-lang=js><span class=c1>// Bước 1: gom hết reasonId từ tất cả các dòng
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>allReasonIds</span> <span class=o>=</span> <span class=nx>rows</span><span class=p>.</span><span class=nx>flatMap</span><span class=p>(</span><span class=nx>r</span> <span class=p>=&gt;</span> <span class=nx>r</span><span class=p>.</span><span class=nx>extraDataObj</span><span class=o>?</span><span class=p>.</span><span class=nx>reasonId</span> <span class=o>||</span> <span class=p>[])</span>
+<span class=kr>const</span> <span class=nx>uniqueIds</span> <span class=o>=</span> <span class=p>[...</span><span class=k>new</span> <span class=nx>Set</span><span class=p>(</span><span class=nx>allReasonIds</span><span class=p>)]</span>
 
-<span style=color:#93a1a1;font-style:italic>// Bước 2: 1 query duy nhất
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>reasons</span> = <span style=color:#859900>await</span> <span style=color:#268bd2>DB</span>.<span style=color:#268bd2>ConfigDiscrepancyReason</span>.<span style=color:#268bd2>findAll</span>({
-  <span style=color:#268bd2>where</span>: { <span style=color:#268bd2>id</span>: <span style=color:#268bd2>uniqueIds</span> }
-})
+<span class=c1>// Bước 2: 1 query duy nhất
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>reasons</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>DB</span><span class=p>.</span><span class=nx>ConfigDiscrepancyReason</span><span class=p>.</span><span class=nx>findAll</span><span class=p>({</span>
+  <span class=nx>where</span><span class=o>:</span> <span class=p>{</span> <span class=nx>id</span><span class=o>:</span> <span class=nx>uniqueIds</span> <span class=p>}</span>
+<span class=p>})</span>
 
-<span style=color:#93a1a1;font-style:italic>// Bước 3: build map O(1)
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>reasonMap</span> = <span style=color:#cb4b16>Object</span>.<span style=color:#268bd2>fromEntries</span>(<span style=color:#268bd2>reasons</span>.<span style=color:#268bd2>map</span>(<span style=color:#268bd2>r</span> =&gt; [<span style=color:#268bd2>r</span>.<span style=color:#268bd2>id</span>, <span style=color:#268bd2>r</span>]))
+<span class=c1>// Bước 3: build map O(1)
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>reasonMap</span> <span class=o>=</span> <span class=nb>Object</span><span class=p>.</span><span class=nx>fromEntries</span><span class=p>(</span><span class=nx>reasons</span><span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=nx>r</span> <span class=p>=&gt;</span> <span class=p>[</span><span class=nx>r</span><span class=p>.</span><span class=nx>id</span><span class=p>,</span> <span class=nx>r</span><span class=p>]))</span>
 
-<span style=color:#93a1a1;font-style:italic>// Bước 4: dùng trong loop — không có DB call nào nữa
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>for</span> (<span style=color:#859900>const</span> <span style=color:#268bd2>row</span> <span style=color:#859900>of</span> <span style=color:#268bd2>rows</span>) {
-  <span style=color:#859900>for</span> (<span style=color:#859900>const</span> <span style=color:#268bd2>reasonId</span> <span style=color:#859900>of</span> <span style=color:#268bd2>row</span>.<span style=color:#268bd2>extraDataObj</span>.<span style=color:#268bd2>reasonId</span>) {
-    <span style=color:#859900>const</span> <span style=color:#268bd2>reason</span> = <span style=color:#268bd2>reasonMap</span>[<span style=color:#268bd2>reasonId</span>] <span style=color:#93a1a1;font-style:italic>// instant lookup
-</span><span style=color:#93a1a1;font-style:italic></span>  }
-}
+<span class=c1>// Bước 4: dùng trong loop — không có DB call nào nữa
+</span><span class=c1></span><span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>row</span> <span class=k>of</span> <span class=nx>rows</span><span class=p>)</span> <span class=p>{</span>
+  <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>reasonId</span> <span class=k>of</span> <span class=nx>row</span><span class=p>.</span><span class=nx>extraDataObj</span><span class=p>.</span><span class=nx>reasonId</span><span class=p>)</span> <span class=p>{</span>
+    <span class=kr>const</span> <span class=nx>reason</span> <span class=o>=</span> <span class=nx>reasonMap</span><span class=p>[</span><span class=nx>reasonId</span><span class=p>]</span> <span class=c1>// instant lookup
+</span><span class=c1></span>  <span class=p>}</span>
+<span class=p>}</span>
 </code></pre></div><h3 id=thủ-phạm-số-3-thông-tin-khách-trong-báo-cáo-bị-trống>Thủ phạm số 3: Thông tin khách trong báo cáo bị trống</h3>
 <p>Báo cáo discrepancy hiển thị tên khách, VIP level, quốc tịch — nhưng khi chạy cho ngày hôm qua (ngày business date đã qua), tất cả những cột đó đều trống hoặc sai.</p>
 <p>Nguyên nhân: hàm <code>generateReservationWhereStatement</code> dùng <code>new Date()</code> — tức là <strong>thời điểm hiện tại</strong> — để lọc reservation đang active. Nhưng khi bạn xuất báo cáo cho ngày 3/3, hệ thống lại lấy reservation của ngày hôm nay (5/3), nên không khớp với log nào cả.</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-js data-lang=js><span style=color:#93a1a1;font-style:italic>// Cách cũ: luôn dùng ngày hôm nay
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>startOfDay</span> = <span style=color:#859900>new</span> <span style=color:#cb4b16>Date</span>()
-<span style=color:#268bd2>startOfDay</span>.<span style=color:#268bd2>setUTCHours</span>(<span style=color:#2aa198;font-weight:700>0</span>, <span style=color:#2aa198;font-weight:700>0</span>, <span style=color:#2aa198;font-weight:700>0</span>, <span style=color:#2aa198;font-weight:700>0</span>)
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-js data-lang=js><span class=c1>// Cách cũ: luôn dùng ngày hôm nay
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>startOfDay</span> <span class=o>=</span> <span class=k>new</span> <span class=nb>Date</span><span class=p>()</span>
+<span class=nx>startOfDay</span><span class=p>.</span><span class=nx>setUTCHours</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>)</span>
 
-<span style=color:#93a1a1;font-style:italic>// Cách mới: dùng ngày của báo cáo nếu có
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>generateReservationWhereStatement</span> = (<span style=color:#268bd2>model</span>, <span style=color:#268bd2>bizDate</span> = <span style=color:#859900;font-weight:700>null</span>) =&gt; {
-  <span style=color:#859900>const</span> <span style=color:#268bd2>baseDate</span> = <span style=color:#268bd2>bizDate</span> ? <span style=color:#859900>new</span> <span style=color:#cb4b16>Date</span>(<span style=color:#268bd2>bizDate</span>) : <span style=color:#859900>new</span> <span style=color:#cb4b16>Date</span>()
-  <span style=color:#859900>const</span> <span style=color:#268bd2>startOfDay</span> = <span style=color:#859900>new</span> <span style=color:#cb4b16>Date</span>(<span style=color:#268bd2>baseDate</span>)
-  <span style=color:#268bd2>startOfDay</span>.<span style=color:#268bd2>setUTCHours</span>(<span style=color:#2aa198;font-weight:700>0</span>, <span style=color:#2aa198;font-weight:700>0</span>, <span style=color:#2aa198;font-weight:700>0</span>, <span style=color:#2aa198;font-weight:700>0</span>)
-  <span style=color:#93a1a1;font-style:italic>// ...
-</span><span style=color:#93a1a1;font-style:italic></span>}
+<span class=c1>// Cách mới: dùng ngày của báo cáo nếu có
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>generateReservationWhereStatement</span> <span class=o>=</span> <span class=p>(</span><span class=nx>model</span><span class=p>,</span> <span class=nx>bizDate</span> <span class=o>=</span> <span class=kc>null</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=p>{</span>
+  <span class=kr>const</span> <span class=nx>baseDate</span> <span class=o>=</span> <span class=nx>bizDate</span> <span class=o>?</span> <span class=k>new</span> <span class=nb>Date</span><span class=p>(</span><span class=nx>bizDate</span><span class=p>)</span> <span class=o>:</span> <span class=k>new</span> <span class=nb>Date</span><span class=p>()</span>
+  <span class=kr>const</span> <span class=nx>startOfDay</span> <span class=o>=</span> <span class=k>new</span> <span class=nb>Date</span><span class=p>(</span><span class=nx>baseDate</span><span class=p>)</span>
+  <span class=nx>startOfDay</span><span class=p>.</span><span class=nx>setUTCHours</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>)</span>
+  <span class=c1>// ...
+</span><span class=c1></span><span class=p>}</span>
 </code></pre></div><p>Đơn giản, nhưng tác động rất lớn: thông tin khách giờ đúng với ngày của báo cáo.</p>
 <h3 id=thủ-phạm-số-4-itemresolvedat-thay-vì-rowresolvedat>Thủ phạm số 4: <code>item.resolvedAt</code> thay vì <code>row.resolvedAt</code></h3>
 <p>Một bug nhỏ nhưng tinh quái. Trong hàm parse dữ liệu block room:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-js data-lang=js><span style=color:#93a1a1;font-style:italic>// Bug: gán lên object gốc (item), không phải output (row)
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#268bd2>item</span>.<span style=color:#268bd2>resolvedAt</span> = <span style=color:#2aa198>&#39;&#39;</span>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-js data-lang=js><span class=c1>// Bug: gán lên object gốc (item), không phải output (row)
+</span><span class=c1></span><span class=nx>item</span><span class=p>.</span><span class=nx>resolvedAt</span> <span class=o>=</span> <span class=s1>&#39;&#39;</span>
 
-<span style=color:#93a1a1;font-style:italic>// Fix: gán đúng vào output object
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#268bd2>row</span>.<span style=color:#268bd2>resolvedAt</span> = <span style=color:#2aa198>&#39;&#39;</span>
+<span class=c1>// Fix: gán đúng vào output object
+</span><span class=c1></span><span class=nx>row</span><span class=p>.</span><span class=nx>resolvedAt</span> <span class=o>=</span> <span class=s1>&#39;&#39;</span>
 </code></pre></div><p>Về mặt runtime thì không crash — nhưng cột <code>resolvedAt</code> trong báo cáo luôn bị trống ở những dòng mà phòng chưa được giải phóng. Ai đọc báo cáo mà không biết thì cứ nghĩ dữ liệu đang miss.</p>
 <h3 id=thủ-phạm-số-5-lỗi-nuốt-chửng-không-re-throw>Thủ phạm số 5: Lỗi nuốt chửng, không re-throw</h3>
 <p>Khi <code>exportPdf</code> hoặc <code>exportExcel</code> thất bại, code cũ trả về chuỗi rỗng <code>''</code>:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-js data-lang=js><span style=color:#93a1a1;font-style:italic>// Cách cũ: thất bại âm thầm
-</span><span style=color:#93a1a1;font-style:italic></span>} <span style=color:#859900>catch</span> (<span style=color:#268bd2>err</span>) {
-  <span style=color:#268bd2>logger</span>.<span style=color:#268bd2>error</span>(<span style=color:#2aa198>&#39;ERREXPRTPDF: &#39;</span>, <span style=color:#268bd2>err</span>)
-  <span style=color:#859900>return</span> <span style=color:#2aa198>&#39;&#39;</span>  <span style=color:#93a1a1;font-style:italic>// caller không biết có lỗi
-</span><span style=color:#93a1a1;font-style:italic></span>}
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-js data-lang=js><span class=c1>// Cách cũ: thất bại âm thầm
+</span><span class=c1></span><span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=nx>err</span><span class=p>)</span> <span class=p>{</span>
+  <span class=nx>logger</span><span class=p>.</span><span class=nx>error</span><span class=p>(</span><span class=s1>&#39;ERREXPRTPDF: &#39;</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+  <span class=k>return</span> <span class=s1>&#39;&#39;</span>  <span class=c1>// caller không biết có lỗi
+</span><span class=c1></span><span class=p>}</span>
 </code></pre></div><p>Đây là kiểu &ldquo;nuốt lỗi&rdquo; — caller nhận <code>''</code> tưởng là thành công, tiếp tục xử lý với URL rỗng, rồi gửi message queue với link báo cáo là <code>''</code>. Hệ thống downstream nhận được link trống, không biết phải làm gì, và toàn bộ flow night audit coi như&mldr; vô nghĩa.</p>
 <p>Sau khi fix: lỗi được throw ra ngoài, và trước khi gửi message queue, hệ thống validate rằng tất cả URL và key đều hợp lệ:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-js data-lang=js><span style=color:#859900>const</span> <span style=color:#268bd2>invalidExport</span> = <span style=color:#268bd2>exports</span>.<span style=color:#268bd2>find</span>((<span style=color:#268bd2>e</span>) =&gt; !<span style=color:#268bd2>e</span> || !<span style=color:#268bd2>e</span>.<span style=color:#268bd2>url</span> || !<span style=color:#268bd2>e</span>.<span style=color:#268bd2>key</span>)
-<span style=color:#859900>if</span> (<span style=color:#268bd2>invalidExport</span>) {
-  <span style=color:#859900>throw</span> <span style=color:#859900>new</span> <span style=color:#cb4b16>Error</span>(<span style=color:#2aa198>`Report export failed: missing url or key`</span>)
-}
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-js data-lang=js><span class=kr>const</span> <span class=nx>invalidExport</span> <span class=o>=</span> <span class=nx>exports</span><span class=p>.</span><span class=nx>find</span><span class=p>((</span><span class=nx>e</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=o>!</span><span class=nx>e</span> <span class=o>||</span> <span class=o>!</span><span class=nx>e</span><span class=p>.</span><span class=nx>url</span> <span class=o>||</span> <span class=o>!</span><span class=nx>e</span><span class=p>.</span><span class=nx>key</span><span class=p>)</span>
+<span class=k>if</span> <span class=p>(</span><span class=nx>invalidExport</span><span class=p>)</span> <span class=p>{</span>
+  <span class=k>throw</span> <span class=k>new</span> <span class=nb>Error</span><span class=p>(</span><span class=sb>`Report export failed: missing url or key`</span><span class=p>)</span>
+<span class=p>}</span>
 </code></pre></div><p>Nếu có gì sai, crash to và rõ ràng — còn hơn âm thầm gửi link rỗng.</p>
 <hr>
 <h2 id=phần-3-giải-pháp>Phần 3: Giải Pháp</h2>

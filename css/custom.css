@@ -63,22 +63,104 @@ article h1 {
     color: #333;
 }
 
-/* Style code blocks */
-pre {
-    background: #eee8d5 !important;
+/* Style code blocks - Catppuccin Latte Theme */
+pre,
+.chroma {
+    background: #eff1f5 !important;
+    color: #4c4f69 !important;
     padding: 15px;
     border-radius: 5px;
     overflow-x: auto;
     margin: 15px 0;
-}
-
-code {
-    background: #eee8d5;
-    color: #586e75;
-    padding: 2px 4px;
-    border-radius: 3px;
     font-family: 'Courier New', monospace;
 }
+
+/* Chroma syntax highlighting classes - Catppuccin Latte */
+.chroma * { color: #4c4f69; } /* Fallback to Text Color */
+.chroma .k,
+.chroma .kd,
+.chroma .kn,
+.chroma .kp,
+.chroma .kr,
+.chroma .kt,
+.chroma .kc {
+    color: #8839ef;
+}
+
+/* Keywords - Mauve */
+.chroma .s,
+.chroma .s1,
+.chroma .s2,
+.chroma .sb,
+.chroma .sc,
+.chroma .sd,
+.chroma .se,
+.chroma .sh,
+.chroma .si,
+.chroma .sx,
+.chroma .sr {
+    color: #40a02b;
+}
+
+/* Strings - Green */
+.chroma .c,
+.chroma .c1,
+.chroma .cm,
+.chroma .cp,
+.chroma .cs {
+    color: #9ca0b0;
+    font-style: italic;
+}
+
+/* Comments - Overlay0 */
+.chroma .nf,
+.chroma .fm {
+    color: #1e66f5;
+}
+
+/* Functions - Blue */
+.chroma .n,
+.chroma .na,
+.chroma .nb,
+.chroma .nc,
+.chroma .nd,
+.chroma .ni,
+.chroma .ne,
+.chroma .nl,
+.chroma .nn,
+.chroma .nt,
+.chroma .nv,
+.chroma .nx,
+.chroma .vc,
+.chroma .vg,
+.chroma .vi {
+    color: #4c4f69;
+}
+
+/* Names/Vars - Text */
+.chroma .o,
+.chroma .ow {
+    color: #04a5e5;
+}
+
+/* Operators - Sky */
+.chroma .m,
+.chroma .mf,
+.chroma .mh,
+.chroma .mi,
+.chroma .mo,
+.chroma .mb,
+.chroma .il {
+    color: #fe640b;
+}
+
+/* Numbers - Peach */
+.chroma .p,
+.chroma .pi {
+    color: #179299;
+}
+
+/* Punctuation - Teal */
 
 pre code {
     background: transparent !important;
@@ -86,7 +168,13 @@ pre code {
     padding: 0;
 }
 
-
+code {
+    background: #f0f0f0;
+    color: #333;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+}
 
 /* Home Page Custom Centering */
 .home-page .w {

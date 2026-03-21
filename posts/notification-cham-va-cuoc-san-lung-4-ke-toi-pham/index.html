@@ -41,55 +41,55 @@ Notification Cham Va Cuoc San Lung 4 Ke Toi Pham
 <p>Khi query danh sách thông báo, code cũ cho phép client tự chọn cột để sort. Nếu client không chỉ định, hệ thống dùng một cột mặc định — không phải <code>createdAt</code>.</p>
 <p><strong>Index</strong> trong database — nói đơn giản — giống như mục lục của một cuốn sách. Nếu bạn tìm &ldquo;chương 5&rdquo; và có mục lục, bạn lật thẳng đến trang đó. Không có mục lục, bạn phải đọc từ trang 1.</p>
 <p>Column <code>createdAt</code> có index. Column được dùng mặc định trước đó thì không chắc. Kết quả: database phải quét toàn bộ bảng để sắp xếp — chậm tuyến tính theo số lượng bản ghi.</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#93a1a1;font-style:italic>// Truoc: sort mac dinh khong ro rang, co the dung cot khong co index
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>let</span> <span style=color:#268bd2>sort</span> = <span style=color:#268bd2>getSort</span>(<span style=color:#268bd2>requestParams</span>.<span style=color:#268bd2>sort</span>, <span style=color:#268bd2>NotificationModel</span>)
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Truoc: sort mac dinh khong ro rang, co the dung cot khong co index
+</span><span class=c1></span><span class=kd>let</span> <span class=nx>sort</span> <span class=o>=</span> <span class=nx>getSort</span><span class=p>(</span><span class=nx>requestParams</span><span class=p>.</span><span class=nx>sort</span><span class=p>,</span> <span class=nx>NotificationModel</span><span class=p>)</span>
 
-<span style=color:#93a1a1;font-style:italic>// Sau: ep default sort ve createdAt — co index, nhanh
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>let</span> <span style=color:#268bd2>sort</span> = <span style=color:#268bd2>getSort</span>(<span style=color:#268bd2>requestParams</span>.<span style=color:#268bd2>sort</span>, <span style=color:#268bd2>NotificationModel</span>, <span style=color:#2aa198>&#39;-createdAt&#39;</span>)
+<span class=c1>// Sau: ep default sort ve createdAt — co index, nhanh
+</span><span class=c1></span><span class=kd>let</span> <span class=nx>sort</span> <span class=o>=</span> <span class=nx>getSort</span><span class=p>(</span><span class=nx>requestParams</span><span class=p>.</span><span class=nx>sort</span><span class=p>,</span> <span class=nx>NotificationModel</span><span class=p>,</span> <span class=s1>&#39;-createdAt&#39;</span><span class=p>)</span>
 </code></pre></div><p><strong>Trước:</strong> Query mất vài trăm ms, tăng dần theo dữ liệu.
 <strong>Sau:</strong> Query nhanh ổn định vì dùng B-tree index.</p>
 <hr>
 <h3 id=kẻ-thứ-hai-sequential-await--chạy-tiếp-sức-kiểu-sai>Kẻ thứ hai: Sequential await — Chạy Tiếp Sức Kiểu Sai</h3>
 <p>Sau khi lấy được danh sách thông báo, code inject thêm thông tin người gửi và người nhận:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#93a1a1;font-style:italic>// Code CU: await tung cai mot
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#268bd2>enrichNotifications</span> = <span style=color:#859900>async</span> (<span style=color:#268bd2>items</span>, <span style=color:#268bd2>scope</span>, <span style=color:#268bd2>options</span>) =&gt; {
-  <span style=color:#859900>let</span> <span style=color:#268bd2>tasks</span> = []
-  <span style=color:#859900>if</span> (<span style=color:#268bd2>scope</span>.<span style=color:#268bd2>includes</span>(<span style=color:#2aa198>&#34;receiver&#34;</span>)) {
-    <span style=color:#268bd2>tasks</span>.<span style=color:#268bd2>push</span>(<span style=color:#859900>await</span> <span style=color:#268bd2>injectUserInfo</span>(<span style=color:#268bd2>items</span>, { <span style=color:#268bd2>idField</span>: <span style=color:#2aa198>&#39;toUserId&#39;</span>, <span style=color:#268bd2>target</span>: <span style=color:#2aa198>&#39;receiver&#39;</span> }, <span style=color:#268bd2>options</span>))
-                <span style=color:#93a1a1;font-style:italic>// ^--- await o day! tasks nhan vao gia tri da resolved
-</span><span style=color:#93a1a1;font-style:italic></span>  }
-  <span style=color:#859900>if</span> (<span style=color:#268bd2>scope</span>.<span style=color:#268bd2>includes</span>(<span style=color:#2aa198>&#34;sender&#34;</span>)) {
-    <span style=color:#268bd2>tasks</span>.<span style=color:#268bd2>push</span>(<span style=color:#859900>await</span> <span style=color:#268bd2>injectUserInfo</span>(<span style=color:#268bd2>items</span>, { <span style=color:#268bd2>idField</span>: <span style=color:#2aa198>&#39;fromUserId&#39;</span>, <span style=color:#268bd2>target</span>: <span style=color:#2aa198>&#39;sender&#39;</span> }, <span style=color:#268bd2>options</span>))
-                <span style=color:#93a1a1;font-style:italic>// ^--- roi moi bat dau cai nay
-</span><span style=color:#93a1a1;font-style:italic></span>  }
-  <span style=color:#859900>await</span> <span style=color:#cb4b16>Promise</span>.<span style=color:#268bd2>all</span>(<span style=color:#268bd2>tasks</span>) <span style=color:#93a1a1;font-style:italic>// Luc nay tasks la array gia tri, Promise.all khong lam gi ca
-</span><span style=color:#93a1a1;font-style:italic></span>}
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Code CU: await tung cai mot
+</span><span class=c1></span><span class=nx>enrichNotifications</span> <span class=o>=</span> <span class=kr>async</span> <span class=p>(</span><span class=nx>items</span><span class=p>,</span> <span class=nx>scope</span><span class=p>,</span> <span class=nx>options</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=p>{</span>
+  <span class=kd>let</span> <span class=nx>tasks</span> <span class=o>=</span> <span class=p>[]</span>
+  <span class=k>if</span> <span class=p>(</span><span class=nx>scope</span><span class=p>.</span><span class=nx>includes</span><span class=p>(</span><span class=s2>&#34;receiver&#34;</span><span class=p>))</span> <span class=p>{</span>
+    <span class=nx>tasks</span><span class=p>.</span><span class=nx>push</span><span class=p>(</span><span class=kr>await</span> <span class=nx>injectUserInfo</span><span class=p>(</span><span class=nx>items</span><span class=p>,</span> <span class=p>{</span> <span class=nx>idField</span><span class=o>:</span> <span class=s1>&#39;toUserId&#39;</span><span class=p>,</span> <span class=nx>target</span><span class=o>:</span> <span class=s1>&#39;receiver&#39;</span> <span class=p>},</span> <span class=nx>options</span><span class=p>))</span>
+                <span class=c1>// ^--- await o day! tasks nhan vao gia tri da resolved
+</span><span class=c1></span>  <span class=p>}</span>
+  <span class=k>if</span> <span class=p>(</span><span class=nx>scope</span><span class=p>.</span><span class=nx>includes</span><span class=p>(</span><span class=s2>&#34;sender&#34;</span><span class=p>))</span> <span class=p>{</span>
+    <span class=nx>tasks</span><span class=p>.</span><span class=nx>push</span><span class=p>(</span><span class=kr>await</span> <span class=nx>injectUserInfo</span><span class=p>(</span><span class=nx>items</span><span class=p>,</span> <span class=p>{</span> <span class=nx>idField</span><span class=o>:</span> <span class=s1>&#39;fromUserId&#39;</span><span class=p>,</span> <span class=nx>target</span><span class=o>:</span> <span class=s1>&#39;sender&#39;</span> <span class=p>},</span> <span class=nx>options</span><span class=p>))</span>
+                <span class=c1>// ^--- roi moi bat dau cai nay
+</span><span class=c1></span>  <span class=p>}</span>
+  <span class=kr>await</span> <span class=nb>Promise</span><span class=p>.</span><span class=nx>all</span><span class=p>(</span><span class=nx>tasks</span><span class=p>)</span> <span class=c1>// Luc nay tasks la array gia tri, Promise.all khong lam gi ca
+</span><span class=c1></span><span class=p>}</span>
 </code></pre></div><p>Cái <code>await</code> đặt nhầm chỗ biến <code>Promise.all</code> phía dưới thành vô dụng. Fetch người nhận xong rồi mới bắt đầu fetch người gửi. Như chạy tiếp sức mà vận động viên thứ hai đứng khởi động cho kỹ, đợi người đầu tiên về đích, bắt tay, ngồi xuống uống nước, rồi mới chạy.</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#93a1a1;font-style:italic>// Code MOI: push Promise (chua resolved) vao list, roi Promise.all chay song song
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#268bd2>enrichNotifications</span> = <span style=color:#859900>async</span> (<span style=color:#268bd2>items</span>, <span style=color:#268bd2>scope</span>, <span style=color:#268bd2>options</span>) =&gt; {
-  <span style=color:#859900>let</span> <span style=color:#268bd2>tasks</span> = []
-  <span style=color:#859900>if</span> (<span style=color:#268bd2>scope</span>.<span style=color:#268bd2>includes</span>(<span style=color:#2aa198>&#34;receiver&#34;</span>)) {
-    <span style=color:#268bd2>tasks</span>.<span style=color:#268bd2>push</span>(<span style=color:#268bd2>injectUserInfo</span>(<span style=color:#268bd2>items</span>, { <span style=color:#268bd2>idField</span>: <span style=color:#2aa198>&#39;toUserId&#39;</span>, <span style=color:#268bd2>target</span>: <span style=color:#2aa198>&#39;receiver&#39;</span> }, <span style=color:#268bd2>options</span>))
-                <span style=color:#93a1a1;font-style:italic>// ^--- khong await, push Promise vao
-</span><span style=color:#93a1a1;font-style:italic></span>  }
-  <span style=color:#859900>if</span> (<span style=color:#268bd2>scope</span>.<span style=color:#268bd2>includes</span>(<span style=color:#2aa198>&#34;sender&#34;</span>)) {
-    <span style=color:#268bd2>tasks</span>.<span style=color:#268bd2>push</span>(<span style=color:#268bd2>injectUserInfo</span>(<span style=color:#268bd2>items</span>, { <span style=color:#268bd2>idField</span>: <span style=color:#2aa198>&#39;fromUserId&#39;</span>, <span style=color:#268bd2>target</span>: <span style=color:#2aa198>&#39;sender&#39;</span> }, <span style=color:#268bd2>options</span>))
-  }
-  <span style=color:#859900>await</span> <span style=color:#cb4b16>Promise</span>.<span style=color:#268bd2>all</span>(<span style=color:#268bd2>tasks</span>) <span style=color:#93a1a1;font-style:italic>// Bay gio hai cai chay song song that su
-</span><span style=color:#93a1a1;font-style:italic></span>}
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Code MOI: push Promise (chua resolved) vao list, roi Promise.all chay song song
+</span><span class=c1></span><span class=nx>enrichNotifications</span> <span class=o>=</span> <span class=kr>async</span> <span class=p>(</span><span class=nx>items</span><span class=p>,</span> <span class=nx>scope</span><span class=p>,</span> <span class=nx>options</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=p>{</span>
+  <span class=kd>let</span> <span class=nx>tasks</span> <span class=o>=</span> <span class=p>[]</span>
+  <span class=k>if</span> <span class=p>(</span><span class=nx>scope</span><span class=p>.</span><span class=nx>includes</span><span class=p>(</span><span class=s2>&#34;receiver&#34;</span><span class=p>))</span> <span class=p>{</span>
+    <span class=nx>tasks</span><span class=p>.</span><span class=nx>push</span><span class=p>(</span><span class=nx>injectUserInfo</span><span class=p>(</span><span class=nx>items</span><span class=p>,</span> <span class=p>{</span> <span class=nx>idField</span><span class=o>:</span> <span class=s1>&#39;toUserId&#39;</span><span class=p>,</span> <span class=nx>target</span><span class=o>:</span> <span class=s1>&#39;receiver&#39;</span> <span class=p>},</span> <span class=nx>options</span><span class=p>))</span>
+                <span class=c1>// ^--- khong await, push Promise vao
+</span><span class=c1></span>  <span class=p>}</span>
+  <span class=k>if</span> <span class=p>(</span><span class=nx>scope</span><span class=p>.</span><span class=nx>includes</span><span class=p>(</span><span class=s2>&#34;sender&#34;</span><span class=p>))</span> <span class=p>{</span>
+    <span class=nx>tasks</span><span class=p>.</span><span class=nx>push</span><span class=p>(</span><span class=nx>injectUserInfo</span><span class=p>(</span><span class=nx>items</span><span class=p>,</span> <span class=p>{</span> <span class=nx>idField</span><span class=o>:</span> <span class=s1>&#39;fromUserId&#39;</span><span class=p>,</span> <span class=nx>target</span><span class=o>:</span> <span class=s1>&#39;sender&#39;</span> <span class=p>},</span> <span class=nx>options</span><span class=p>))</span>
+  <span class=p>}</span>
+  <span class=kr>await</span> <span class=nb>Promise</span><span class=p>.</span><span class=nx>all</span><span class=p>(</span><span class=nx>tasks</span><span class=p>)</span> <span class=c1>// Bay gio hai cai chay song song that su
+</span><span class=c1></span><span class=p>}</span>
 </code></pre></div><p>Hai network call sang service user — trước đây chạy nối tiếp, giờ chạy song song. Thời gian giảm gần một nửa cho bước này.</p>
 <hr>
 <h3 id=kẻ-thứ-ba-on-deduplication--thuật-toán-của-sự-lười-biếng>Kẻ thứ ba: O(n²) Deduplication — Thuật Toán Của Sự Lười Biếng</h3>
 <p>Trước khi gọi sang service user để lấy thông tin, code cần lọc unique user ID từ danh sách thông báo. Code cũ làm thế này:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#93a1a1;font-style:italic>// Code CU: tim unique bang indexOf — O(n^2)
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>let</span> <span style=color:#268bd2>uniqueIds</span> = <span style=color:#268bd2>allIds</span>.<span style=color:#268bd2>filter</span>(<span style=color:#859900>function</span>(<span style=color:#268bd2>item</span>, <span style=color:#268bd2>pos</span>) {
-  <span style=color:#859900>return</span> <span style=color:#268bd2>item</span> &amp;&amp; <span style=color:#268bd2>allIds</span>.<span style=color:#268bd2>indexOf</span>(<span style=color:#268bd2>item</span>) === <span style=color:#268bd2>pos</span>
-  <span style=color:#93a1a1;font-style:italic>//            ^--- moi phan tu lai scan toan bo mang tu dau
-</span><span style=color:#93a1a1;font-style:italic></span>})
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Code CU: tim unique bang indexOf — O(n^2)
+</span><span class=c1></span><span class=kd>let</span> <span class=nx>uniqueIds</span> <span class=o>=</span> <span class=nx>allIds</span><span class=p>.</span><span class=nx>filter</span><span class=p>(</span><span class=kd>function</span><span class=p>(</span><span class=nx>item</span><span class=p>,</span> <span class=nx>pos</span><span class=p>)</span> <span class=p>{</span>
+  <span class=k>return</span> <span class=nx>item</span> <span class=o>&amp;&amp;</span> <span class=nx>allIds</span><span class=p>.</span><span class=nx>indexOf</span><span class=p>(</span><span class=nx>item</span><span class=p>)</span> <span class=o>===</span> <span class=nx>pos</span>
+  <span class=c1>//            ^--- moi phan tu lai scan toan bo mang tu dau
+</span><span class=c1></span><span class=p>})</span>
 </code></pre></div><p><code>indexOf</code> scan từ đầu mảng mỗi lần gọi. Với mảng 100 phần tử, đây là 100×100 = 10.000 phép so sánh. Với 1.000 phần tử: 1.000.000 phép so sánh.</p>
 <p><strong>Sau:</strong></p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#93a1a1;font-style:italic>// Set dedup trong O(n)
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>let</span> <span style=color:#268bd2>uniqueIds</span> = [...<span style=color:#859900>new</span> <span style=color:#268bd2>Set</span>(<span style=color:#268bd2>allIds</span>.<span style=color:#268bd2>filter</span>(<span style=color:#268bd2>id</span> =&gt; <span style=color:#268bd2>id</span>))]
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Set dedup trong O(n)
+</span><span class=c1></span><span class=kd>let</span> <span class=nx>uniqueIds</span> <span class=o>=</span> <span class=p>[...</span><span class=k>new</span> <span class=nx>Set</span><span class=p>(</span><span class=nx>allIds</span><span class=p>.</span><span class=nx>filter</span><span class=p>(</span><span class=nx>id</span> <span class=p>=&gt;</span> <span class=nx>id</span><span class=p>))]</span>
 </code></pre></div><p><code>Set</code> dùng hash table bên trong — thêm và kiểm tra trùng đều O(1). Toàn bộ dedup xong trong một lần duyệt.</p>
 <hr>
 <h3 id=kẻ-thứ-tư-và-nguy-hiểm-nhất-zero-cache-trên-user-info>Kẻ thứ tư (và nguy hiểm nhất): Zero Cache Trên User Info</h3>
@@ -97,51 +97,51 @@ Notification Cham Va Cuoc San Lung 4 Ke Toi Pham
 <p>Mỗi lần notification service cần thông tin người dùng, nó gọi API sang service quản lý user. Service đó nhận request, query thẳng database, trả kết quả. Không cache gì cả.</p>
 <p>Thông tin người dùng — tên, email, avatar — <strong>gần như không bao giờ thay đổi</strong> trong vài chục phút. Nhưng mỗi lần có ai đó mở notification panel, hệ thống lại đi hỏi database từ đầu. Với một tổ chức có 50 nhân viên thường xuyên nhận thông báo, cùng giờ cao điểm buổi sáng, đây là hàng trăm DB query cho cùng một tập dữ liệu không thay đổi.</p>
 <p>Giải pháp: thêm <strong>cache per-user với TTL 30 phút</strong> trực tiếp trong service quản lý user.</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#93a1a1;font-style:italic>// Trong service quan ly nguoi dung — endpoint moi co cache layer
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>CACHE_TTL</span> = <span style=color:#2aa198;font-weight:700>30</span> * <span style=color:#2aa198;font-weight:700>60</span>  <span style=color:#93a1a1;font-style:italic>// 30 phut
-</span><span style=color:#93a1a1;font-style:italic></span>
-<span style=color:#93a1a1;font-style:italic>// 1. Kiem tra cache cho tung user ID
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>cacheResults</span> = <span style=color:#859900>await</span> <span style=color:#cb4b16>Promise</span>.<span style=color:#268bd2>all</span>(
-  <span style=color:#268bd2>requestedIds</span>.<span style=color:#268bd2>map</span>(<span style=color:#268bd2>id</span> =&gt; {
-    <span style=color:#859900>const</span> <span style=color:#268bd2>key</span> = <span style=color:#2aa198>`user:</span><span style=color:#2aa198>${</span><span style=color:#268bd2>orgId</span><span style=color:#2aa198>}</span><span style=color:#2aa198>:</span><span style=color:#2aa198>${</span><span style=color:#268bd2>id</span><span style=color:#2aa198>}</span><span style=color:#2aa198>`</span>
-    <span style=color:#859900>return</span> <span style=color:#268bd2>cache</span>.<span style=color:#268bd2>get</span>(<span style=color:#268bd2>key</span>)
-      .<span style=color:#268bd2>then</span>(<span style=color:#268bd2>val</span> =&gt; ({ <span style=color:#268bd2>id</span>, <span style=color:#268bd2>val</span> }))
-      .<span style=color:#859900>catch</span>(() =&gt; ({ <span style=color:#268bd2>id</span>, <span style=color:#268bd2>val</span>: <span style=color:#859900;font-weight:700>null</span> }))
-  })
-)
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Trong service quan ly nguoi dung — endpoint moi co cache layer
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>CACHE_TTL</span> <span class=o>=</span> <span class=mi>30</span> <span class=o>*</span> <span class=mi>60</span>  <span class=c1>// 30 phut
+</span><span class=c1></span>
+<span class=c1>// 1. Kiem tra cache cho tung user ID
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>cacheResults</span> <span class=o>=</span> <span class=kr>await</span> <span class=nb>Promise</span><span class=p>.</span><span class=nx>all</span><span class=p>(</span>
+  <span class=nx>requestedIds</span><span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=nx>id</span> <span class=p>=&gt;</span> <span class=p>{</span>
+    <span class=kr>const</span> <span class=nx>key</span> <span class=o>=</span> <span class=sb>`user:</span><span class=si>${</span><span class=nx>orgId</span><span class=si>}</span><span class=sb>:</span><span class=si>${</span><span class=nx>id</span><span class=si>}</span><span class=sb>`</span>
+    <span class=k>return</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>get</span><span class=p>(</span><span class=nx>key</span><span class=p>)</span>
+      <span class=p>.</span><span class=nx>then</span><span class=p>(</span><span class=nx>val</span> <span class=p>=&gt;</span> <span class=p>({</span> <span class=nx>id</span><span class=p>,</span> <span class=nx>val</span> <span class=p>}))</span>
+      <span class=p>.</span><span class=k>catch</span><span class=p>(()</span> <span class=p>=&gt;</span> <span class=p>({</span> <span class=nx>id</span><span class=p>,</span> <span class=nx>val</span><span class=o>:</span> <span class=kc>null</span> <span class=p>}))</span>
+  <span class=p>})</span>
+<span class=p>)</span>
 
-<span style=color:#93a1a1;font-style:italic>// 2. Phan loai: hit vs miss
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>hitMap</span> = {}
-<span style=color:#859900>const</span> <span style=color:#268bd2>missIds</span> = []
-<span style=color:#859900>for</span> (<span style=color:#859900>const</span> { <span style=color:#268bd2>id</span>, <span style=color:#268bd2>val</span> } <span style=color:#859900>of</span> <span style=color:#268bd2>cacheResults</span>) {
-  <span style=color:#859900>if</span> (<span style=color:#268bd2>val</span>) <span style=color:#268bd2>hitMap</span>[<span style=color:#268bd2>id</span>] = <span style=color:#268bd2>val</span>   <span style=color:#93a1a1;font-style:italic>// Cache hit: khong can DB
-</span><span style=color:#93a1a1;font-style:italic></span>  <span style=color:#859900>else</span>     <span style=color:#268bd2>missIds</span>.<span style=color:#268bd2>push</span>(<span style=color:#268bd2>id</span>)   <span style=color:#93a1a1;font-style:italic>// Cache miss: can query DB
-</span><span style=color:#93a1a1;font-style:italic></span>}
+<span class=c1>// 2. Phan loai: hit vs miss
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>hitMap</span> <span class=o>=</span> <span class=p>{}</span>
+<span class=kr>const</span> <span class=nx>missIds</span> <span class=o>=</span> <span class=p>[]</span>
+<span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=p>{</span> <span class=nx>id</span><span class=p>,</span> <span class=nx>val</span> <span class=p>}</span> <span class=k>of</span> <span class=nx>cacheResults</span><span class=p>)</span> <span class=p>{</span>
+  <span class=k>if</span> <span class=p>(</span><span class=nx>val</span><span class=p>)</span> <span class=nx>hitMap</span><span class=p>[</span><span class=nx>id</span><span class=p>]</span> <span class=o>=</span> <span class=nx>val</span>   <span class=c1>// Cache hit: khong can DB
+</span><span class=c1></span>  <span class=k>else</span>     <span class=nx>missIds</span><span class=p>.</span><span class=nx>push</span><span class=p>(</span><span class=nx>id</span><span class=p>)</span>   <span class=c1>// Cache miss: can query DB
+</span><span class=c1></span><span class=p>}</span>
 
-<span style=color:#93a1a1;font-style:italic>// 3. Chi query DB voi nhung ID chua co trong cache
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>let</span> <span style=color:#268bd2>freshItems</span> = []
-<span style=color:#859900>if</span> (<span style=color:#268bd2>missIds</span>.<span style=color:#268bd2>length</span> &gt; <span style=color:#2aa198;font-weight:700>0</span>) {
-  <span style=color:#859900>const</span> <span style=color:#268bd2>dbData</span> = <span style=color:#859900>await</span> <span style=color:#268bd2>UserModel</span>.<span style=color:#268bd2>getBatch</span>({ <span style=color:#268bd2>where</span>: { <span style=color:#268bd2>id</span>: <span style=color:#268bd2>missIds</span> } })
-  <span style=color:#268bd2>freshItems</span> = <span style=color:#268bd2>dbData</span>.<span style=color:#268bd2>items</span>
+<span class=c1>// 3. Chi query DB voi nhung ID chua co trong cache
+</span><span class=c1></span><span class=kd>let</span> <span class=nx>freshItems</span> <span class=o>=</span> <span class=p>[]</span>
+<span class=k>if</span> <span class=p>(</span><span class=nx>missIds</span><span class=p>.</span><span class=nx>length</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+  <span class=kr>const</span> <span class=nx>dbData</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>UserModel</span><span class=p>.</span><span class=nx>getBatch</span><span class=p>({</span> <span class=nx>where</span><span class=o>:</span> <span class=p>{</span> <span class=nx>id</span><span class=o>:</span> <span class=nx>missIds</span> <span class=p>}</span> <span class=p>})</span>
+  <span class=nx>freshItems</span> <span class=o>=</span> <span class=nx>dbData</span><span class=p>.</span><span class=nx>items</span>
 
-  <span style=color:#93a1a1;font-style:italic>// 4. Luu vao cache de lan sau khoi query
-</span><span style=color:#93a1a1;font-style:italic></span>  <span style=color:#859900>await</span> <span style=color:#cb4b16>Promise</span>.<span style=color:#268bd2>all</span>(
-    <span style=color:#268bd2>freshItems</span>.<span style=color:#268bd2>map</span>(<span style=color:#268bd2>item</span> =&gt;
-      <span style=color:#268bd2>cache</span>.<span style=color:#268bd2>set</span>(<span style=color:#2aa198>`user:</span><span style=color:#2aa198>${</span><span style=color:#268bd2>orgId</span><span style=color:#2aa198>}</span><span style=color:#2aa198>:</span><span style=color:#2aa198>${</span><span style=color:#268bd2>item</span>.<span style=color:#268bd2>id</span><span style=color:#2aa198>}</span><span style=color:#2aa198>`</span>, <span style=color:#268bd2>item</span>, <span style=color:#268bd2>CACHE_TTL</span>)
-    )
-  )
-}
+  <span class=c1>// 4. Luu vao cache de lan sau khoi query
+</span><span class=c1></span>  <span class=kr>await</span> <span class=nb>Promise</span><span class=p>.</span><span class=nx>all</span><span class=p>(</span>
+    <span class=nx>freshItems</span><span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=nx>item</span> <span class=p>=&gt;</span>
+      <span class=nx>cache</span><span class=p>.</span><span class=nx>set</span><span class=p>(</span><span class=sb>`user:</span><span class=si>${</span><span class=nx>orgId</span><span class=si>}</span><span class=sb>:</span><span class=si>${</span><span class=nx>item</span><span class=p>.</span><span class=nx>id</span><span class=si>}</span><span class=sb>`</span><span class=p>,</span> <span class=nx>item</span><span class=p>,</span> <span class=nx>CACHE_TTL</span><span class=p>)</span>
+    <span class=p>)</span>
+  <span class=p>)</span>
+<span class=p>}</span>
 
-<span style=color:#93a1a1;font-style:italic>// 5. Gop ket qua: tu cache + tu DB, theo dung thu tu request
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>result</span> = <span style=color:#268bd2>requestedIds</span>
-  .<span style=color:#268bd2>map</span>(<span style=color:#268bd2>id</span> =&gt; <span style=color:#268bd2>hitMap</span>[<span style=color:#268bd2>id</span>] || <span style=color:#268bd2>freshMap</span>[<span style=color:#268bd2>id</span>])
-  .<span style=color:#268bd2>filter</span>(<span style=color:#cb4b16>Boolean</span>)
+<span class=c1>// 5. Gop ket qua: tu cache + tu DB, theo dung thu tu request
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>result</span> <span class=o>=</span> <span class=nx>requestedIds</span>
+  <span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=nx>id</span> <span class=p>=&gt;</span> <span class=nx>hitMap</span><span class=p>[</span><span class=nx>id</span><span class=p>]</span> <span class=o>||</span> <span class=nx>freshMap</span><span class=p>[</span><span class=nx>id</span><span class=p>])</span>
+  <span class=p>.</span><span class=nx>filter</span><span class=p>(</span><span class=nb>Boolean</span><span class=p>)</span>
 </code></pre></div><p>Sau đó, notification service được cập nhật để gọi endpoint mới có cache thay vì endpoint cũ gọi thẳng DB:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#93a1a1;font-style:italic>// Truoc: goi API lay thong tin user — query DB moi lan
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>url</span> = <span style=color:#2aa198>`</span><span style=color:#2aa198>${</span><span style=color:#268bd2>userServiceHost</span><span style=color:#2aa198>}</span><span style=color:#2aa198>/api/users?</span><span style=color:#2aa198>${</span><span style=color:#268bd2>query</span><span style=color:#2aa198>}</span><span style=color:#2aa198>`</span>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Truoc: goi API lay thong tin user — query DB moi lan
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>url</span> <span class=o>=</span> <span class=sb>`</span><span class=si>${</span><span class=nx>userServiceHost</span><span class=si>}</span><span class=sb>/api/users?</span><span class=si>${</span><span class=nx>query</span><span class=si>}</span><span class=sb>`</span>
 
-<span style=color:#93a1a1;font-style:italic>// Sau: goi API co cache layer
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>url</span> = <span style=color:#2aa198>`</span><span style=color:#2aa198>${</span><span style=color:#268bd2>userServiceHost</span><span style=color:#2aa198>}</span><span style=color:#2aa198>/api/users/cached?</span><span style=color:#2aa198>${</span><span style=color:#268bd2>query</span><span style=color:#2aa198>}</span><span style=color:#2aa198>`</span>
+<span class=c1>// Sau: goi API co cache layer
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>url</span> <span class=o>=</span> <span class=sb>`</span><span class=si>${</span><span class=nx>userServiceHost</span><span class=si>}</span><span class=sb>/api/users/cached?</span><span class=si>${</span><span class=nx>query</span><span class=si>}</span><span class=sb>`</span>
 </code></pre></div><p><strong>Trước:</strong> Mỗi request → DB query cho tất cả user ID.
 <strong>Sau:</strong> Lần đầu → DB query chỉ cho ID chưa cache. Từ lần hai trở đi trong 30 phút → trả về từ cache ngay lập tức.</p>
 <hr>
