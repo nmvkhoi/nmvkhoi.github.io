@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 body {
     display: flex;
     justify-content: center;
@@ -72,7 +74,7 @@ pre,
     border-radius: 5px;
     overflow-x: auto;
     margin: 15px 0;
-    font-family: 'Courier New', monospace;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 /* Chroma syntax highlighting classes - Catppuccin Latte */
@@ -173,7 +175,7 @@ code {
     color: #333;
     padding: 2px 4px;
     border-radius: 3px;
-    font-family: 'Courier New', monospace;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 /* Home Page Custom Centering */
