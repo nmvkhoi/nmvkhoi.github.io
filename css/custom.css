@@ -65,7 +65,7 @@ article h1 {
 
 /* Style code blocks */
 pre {
-    background: #f6f8fa;
+    background: #f4f4f4;
     padding: 15px;
     border-radius: 5px;
     overflow-x: auto;
@@ -73,15 +73,10 @@ pre {
 }
 
 code {
-    background: #f6f8fa;
+    background: #f4f4f4;
     padding: 2px 4px;
     border-radius: 3px;
     font-family: 'Courier New', monospace;
-}
-
-pre code {
-    background: transparent;
-    padding: 0;
 }
 
 /* Home Page Custom Centering */
