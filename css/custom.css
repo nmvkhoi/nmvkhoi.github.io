@@ -63,105 +63,27 @@ article h1 {
     color: #333;
 }
 
-/* Style code blocks - Tokyo Night Theme */
-pre,
-.chroma {
-    background: #1a1b26 !important;
-    color: #a4b1cd !important;
+/* Style code blocks */
+pre {
+    background: #eee8d5 !important;
     padding: 15px;
     border-radius: 5px;
     overflow-x: auto;
     margin: 15px 0;
+}
+
+code {
+    background: #eee8d5;
+    color: #586e75;
+    padding: 2px 4px;
+    border-radius: 3px;
     font-family: 'Courier New', monospace;
 }
-
-/* Chroma syntax highlighting classes - Tokyo Night */
-.chroma .k,
-.chroma .kd,
-.chroma .kn,
-.chroma .kp,
-.chroma .kr,
-.chroma .kt {
-    color: #bb9af7;
-}
-
-/* Keywords - Purple */
-.chroma .s,
-.chroma .s1,
-.chroma .s2,
-.chroma .sb,
-.chroma .sc,
-.chroma .sd,
-.chroma .se,
-.chroma .sh,
-.chroma .si,
-.chroma .sx {
-    color: #e0af68;
-}
-
-/* Strings - Orange */
-.chroma .c,
-.chroma .c1,
-.chroma .cm {
-    color: #565f89;
-    font-style: italic;
-}
-
-/* Comments - Gray/Blue */
-.chroma .nf,
-.chroma .fm {
-    color: #7aa2f7;
-}
-
-/* Functions - Blue */
-.chroma .n,
-.chroma .na,
-.chroma .nb,
-.chroma .nc,
-.chroma .nd,
-.chroma .ni,
-.chroma .ne,
-.chroma .nl,
-.chroma .nn,
-.chroma .nt,
-.chroma .nv {
-    color: #c0caf5;
-}
-
-/* Names - Light Blue */
-.chroma .o,
-.chroma .ow {
-    color: #89ddff;
-}
-
-/* Operators - Cyan */
-.chroma .m,
-.chroma .mf,
-.chroma .mh,
-.chroma .mi,
-.chroma .mo {
-    color: #ff9e64;
-}
-
-/* Numbers - Orange */
-.chroma .p {
-    color: #a4b1cd;
-}
-
-/* Punctuation */
 
 pre code {
     background: transparent !important;
     color: inherit !important;
     padding: 0;
-}
-
-code {
-    background: #f0f0f0;
-    color: #333;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-family: 'Courier New', monospace;
 }
 
 
