@@ -1,0 +1,233 @@
+<!doctype html><html lang=en-us><head>
+<meta charset=utf-8>
+<meta http-equiv=x-ua-compatible content="IE=edge">
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="Phần 1: Hôm Đó Tôi Nhận Được Cái Ticket Ấy&mldr; Hôm đó là một buổi sáng bình thường. Cà phê chưa kịp nguội, Slack đã nổ cái ping.
+ &ldquo;Anh ơi, cái chức năng export báo cáo bị timeout rồi. Khách sạn to họ export là treo luôn, không ra file.&rdquo;
+ Tôi gõ lại: &ldquo;Timeout ở đâu?&rdquo; — vì câu hỏi đó bao giờ cũng hay hơn câu &ldquo;lỗi gì?">
+<title>
+Tối Ưu Export Report Từ N+1 Đến Parallel
+</title>
+<link rel="shortcut icon" type=image/x-icon href=/>
+<link rel=stylesheet href=/css/main.10776b9b86bf7e3aca232a6c5e4fbdc3baacf45c0cc3a1802995836aa1689368e8fadebd3e46fdc9ad87eab1f834f5bbb28dbb2b23fea73ae3e57c258caef3bd.css integrity="sha512-EHdrm4a/fjrKIypsXk+9w7qs9FwMw6GAKZWDaqFok2jo+t69Pkb9ya2H6rH4NPW7so27KyP+pzrj5XwljK7zvQ==">
+<link rel=stylesheet href=/css/custom.css>
+</head>
+<body a=light>
+<main class=page-content aria-label=Content>
+<div class=w>
+<a href=/>..</a>
+<article>
+<p class=post-meta>
+<time datetime="2026-03-09 10:30:07 +0700 +07">
+2026-03-09
+</time>
+</p>
+<h1>Tối Ưu Export Report Từ N+1 Đến Parallel</h1>
+<h2 id=phần-1-hôm-đó-tôi-nhận-được-cái-ticket-ấy>Phần 1: Hôm Đó Tôi Nhận Được Cái Ticket Ấy&mldr;</h2>
+<p>Hôm đó là một buổi sáng bình thường. Cà phê chưa kịp nguội, Slack đã nổ cái ping.</p>
+<blockquote>
+<p>&ldquo;Anh ơi, cái chức năng export báo cáo bị timeout rồi. Khách sạn to họ export là treo luôn, không ra file.&rdquo;</p>
+</blockquote>
+<p>Tôi gõ lại: &ldquo;Timeout ở đâu?&rdquo; — vì câu hỏi đó bao giờ cũng hay hơn câu &ldquo;lỗi gì?&rdquo;.</p>
+<p>Trả lời: &ldquo;Ở chỗ export PDF ấy anh. Khách sạn nhỏ thì chạy được. Khách sạn lớn, nhiều phòng, là cứng đơ.&rdquo;</p>
+<p>Tôi thở dài. Không phải vì khó — mà vì tôi linh cảm rằng đây là một trong những bug kiểu: <em>code chạy đúng với 50 dòng dữ liệu, chết với 500 dòng</em>. Loại bug này thường có căn nguyên sâu xa hơn là &ldquo;server yếu&rdquo;.</p>
+<p>Mở code ra. Đọc. Và đúng như dự đoán — có tới <strong>ba vấn đề hiệu năng chồng chất lên nhau</strong>, mỗi cái đủ sức làm hệ thống ì ạch, cộng lại thì&mldr; timeout là chuyện tất nhiên.</p>
+<hr>
+<h2 id=phần-2-vấn-đề-và-bối-cảnh>Phần 2: Vấn Đề Và Bối Cảnh</h2>
+<h3 id=tội-ác-thứ-nhất-n1-query--đi-siêu-thị-kiểu-nhớ-gì-mua-nấy>Tội ác thứ nhất: N+1 Query — Đi Siêu Thị Kiểu &ldquo;Nhớ Gì Mua Nấy&rdquo;</h3>
+<p>Bạn có bao giờ đi siêu thị mà cứ ra về lại nhớ quên cái gì đó không? Quay lại mua. Rồi lại quên. Rồi lại quay lại. Mỗi lần đi mất 10 phút. Mua tổng cộng 20 thứ = 200 phút chỉ để đi siêu thị.</p>
+<p>Đó là <strong>N+1 query</strong> — vấn đề cổ điển nhất trong lịch sử backend.</p>
+<p>Trong code cũ, hàm xử lý dữ liệu báo cáo làm y chang vậy:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Code CU: Duyet tung dong du lieu
+</span><span class=c1></span><span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>row</span> <span class=k>of</span> <span class=nx>data</span><span class=p>)</span> <span class=p>{</span>
+  <span class=kr>const</span> <span class=nx>item</span> <span class=o>=</span> <span class=nx>row</span><span class=p>.</span><span class=nx>get</span><span class=p>({</span> <span class=nx>plain</span><span class=o>:</span> <span class=kc>true</span> <span class=p>})</span>
+
+  <span class=c1>// Voi moi dong, lai query DB de lay ten ly do!
+</span><span class=c1></span>  <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>reasonId</span> <span class=k>of</span> <span class=nx>item</span><span class=p>.</span><span class=nx>extraData</span><span class=p>.</span><span class=nx>reasonId</span><span class=p>)</span> <span class=p>{</span>
+    <span class=kr>const</span> <span class=nx>reason</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>DB</span><span class=p>.</span><span class=nx>ConfigDiscrepancyReason</span><span class=p>.</span><span class=nx>findOne</span><span class=p>({</span>  <span class=c1>// &lt;-- DB call trong loop!
+</span><span class=c1></span>      <span class=nx>where</span><span class=o>:</span> <span class=p>{</span> <span class=nx>id</span><span class=o>:</span> <span class=nx>reasonId</span> <span class=p>}</span>
+    <span class=p>})</span>
+    <span class=c1>// ... xu ly
+</span><span class=c1></span>  <span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div><p>Giả sử có 300 phòng, mỗi phòng có 3 lý do bất thường — hệ thống sẽ gọi DB đúng <strong>900 lần</strong> chỉ để lấy tên mấy cái lý do đó. 900 round-trip tới database. Trong khi toàn bộ dữ liệu đó hoàn toàn có thể lấy trong <strong>1 câu query duy nhất</strong>.</p>
+<p><strong>Trước:</strong></p>
+<pre tabindex=0><code>300 phòng x 3 lý do = 900 DB queries (một chuyến đi siêu thị mỗi lần nhớ ra)
+</code></pre><p><strong>Sau:</strong></p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Gom tat ca reasonId lai
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>allReasonIds</span> <span class=o>=</span> <span class=nx>rows</span><span class=p>.</span><span class=nx>flatMap</span><span class=p>(</span><span class=nx>r</span> <span class=p>=&gt;</span> <span class=nx>r</span><span class=p>.</span><span class=nx>extraDataObj</span><span class=o>?</span><span class=p>.</span><span class=nx>reasonId</span> <span class=o>||</span> <span class=p>[])</span>
+<span class=kr>const</span> <span class=nx>uniqueIds</span> <span class=o>=</span> <span class=p>[...</span><span class=k>new</span> <span class=nx>Set</span><span class=p>(</span><span class=nx>allReasonIds</span><span class=p>)]</span>
+
+<span class=c1>// 1 query duy nhat cho tat ca
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>allReasons</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>DB</span><span class=p>.</span><span class=nx>ConfigDiscrepancyReason</span><span class=p>.</span><span class=nx>findAll</span><span class=p>({</span>
+  <span class=nx>where</span><span class=o>:</span> <span class=p>{</span> <span class=nx>id</span><span class=o>:</span> <span class=nx>uniqueIds</span> <span class=p>}</span>
+<span class=p>})</span>
+
+<span class=c1>// Build map de lookup O(1)
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>reasonMap</span> <span class=o>=</span> <span class=p>{}</span>
+<span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>r</span> <span class=k>of</span> <span class=nx>allReasons</span><span class=p>)</span> <span class=nx>reasonMap</span><span class=p>[</span><span class=nx>r</span><span class=p>.</span><span class=nx>id</span><span class=p>]</span> <span class=o>=</span> <span class=nx>r</span>
+
+<span class=c1>// Gio trong loop chi tra cuu map, khong con DB call
+</span><span class=c1></span><span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=p>{</span> <span class=nx>item</span><span class=p>,</span> <span class=nx>extraDataObj</span> <span class=p>}</span> <span class=k>of</span> <span class=nx>rows</span><span class=p>)</span> <span class=p>{</span>
+  <span class=kr>const</span> <span class=nx>reasonName</span> <span class=o>=</span> <span class=nx>extraDataObj</span><span class=p>.</span><span class=nx>reasonId</span><span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=nx>id</span> <span class=p>=&gt;</span> <span class=nx>reasonMap</span><span class=p>[</span><span class=nx>id</span><span class=p>]</span><span class=o>?</span><span class=p>.</span><span class=nx>description</span><span class=p>)</span>
+  <span class=c1>// ...
+</span><span class=c1></span><span class=p>}</span>
+</code></pre></div><p>1 chuyến siêu thị với danh sách đầy đủ. Về nhà một lần. Xong.</p>
+<hr>
+<h3 id=tội-ác-thứ-hai-sequential-await--làm-việc-kiểu-một-người-làm-chín-người-ngồi-chờ>Tội ác thứ hai: Sequential Await — Làm Việc Kiểu &ldquo;Một Người Làm, Chín Người Ngồi Chờ&rdquo;</h3>
+<p>Trong hàm tạo báo cáo kiểm toán cuối ngày, code cũ làm thế này:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Code CU: Tung buoc cho nhau
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>blockRoomData</span>    <span class=o>=</span> <span class=kr>await</span> <span class=nx>fetchBlockingRooms</span><span class=p>(...)</span>      <span class=c1>// 800ms
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>metaData</span>         <span class=o>=</span> <span class=kr>await</span> <span class=nx>fetchMetadata</span><span class=p>()</span>              <span class=c1>// 200ms
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>propertyDetail</span>   <span class=o>=</span> <span class=kr>await</span> <span class=nx>fetchPropertyInfo</span><span class=p>(...)</span>       <span class=c1>// 300ms
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>discrepancyData</span>  <span class=o>=</span> <span class=kr>await</span> <span class=nx>fetchDiscrepancyRooms</span><span class=p>(...)</span>   <span class=c1>// 600ms
+</span><span class=c1>// Tong: ~1900ms
+</span></code></pre></div><p>Tưởng tượng bạn cần: pha cà phê, nướng bánh mì, luộc trứng, và đọc báo buổi sáng. Bạn có thể làm tuần tự — pha cà phê xong mới nướng bánh, nướng xong mới luộc trứng. Hoặc bạn có thể <strong>bật lò nướng, bỏ trứng vào nồi, pha cà phê, rồi đọc báo trong khi chờ</strong> — tất cả cùng lúc.</p>
+<p>Bốn cái fetch kia <strong>hoàn toàn độc lập nhau</strong>. Chúng không cần kết quả của nhau để chạy. Vậy tại sao lại chờ từng cái một?</p>
+<p><strong>Sau:</strong></p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Code MOI: Chay song song
+</span><span class=c1></span><span class=kr>const</span> <span class=p>[</span><span class=nx>blockRoomData</span><span class=p>,</span> <span class=nx>discrepancyData</span><span class=p>,</span> <span class=nx>metaData</span><span class=p>,</span> <span class=nx>propertyDetail</span><span class=p>]</span> <span class=o>=</span> <span class=kr>await</span> <span class=nb>Promise</span><span class=p>.</span><span class=nx>all</span><span class=p>([</span>
+  <span class=nx>fetchBlockingRooms</span><span class=p>(...),</span>    <span class=c1>// \
+</span><span class=c1></span>  <span class=nx>fetchDiscrepancyRooms</span><span class=p>(...),</span> <span class=c1>//  &gt; chay dong thoi
+</span><span class=c1></span>  <span class=nx>fetchMetadata</span><span class=p>(),</span>            <span class=c1>// /
+</span><span class=c1></span>  <span class=nx>fetchPropertyInfo</span><span class=p>(...)</span>      <span class=c1>// /
+</span><span class=c1></span><span class=p>])</span>
+<span class=c1>// Tong: ~800ms (chi bang thoi gian cai lau nhat)
+</span></code></pre></div><p>Từ ~1900ms xuống ~800ms. Không cần thêm server, không cần cache — chỉ cần sắp xếp lại thứ tự làm việc.</p>
+<hr>
+<h3 id=tội-ác-thứ-ba-render-pdf-cả-nghìn-phòng-một-lần--như-ăn-cả-nồi-cơm-một-miếng>Tội ác thứ ba: Render PDF Cả Nghìn Phòng Một Lần — Như Ăn Cả Nồi Cơm Một Miếng</h3>
+<p>Puppeteer — công cụ dùng để render HTML thành PDF — rất mạnh nhưng cũng rất&mldr; thèm RAM. Khi bạn bắt nó render một trang HTML có 800 dòng bảng, nó sẽ load toàn bộ DOM vào bộ nhớ, vẽ hết, rồi xuất PDF.</p>
+<p>Với khách sạn nhỏ (50 phòng): ngon. Với khách sạn lớn (500+ phòng): Puppeteer khởi động, load DOM, rồi&mldr; timeout. Hoặc crash.</p>
+<p><strong>Trước:</strong></p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Render tat ca 500 phong mot lan
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>html</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>buildTemplate</span><span class=p>({</span> <span class=nx>items</span><span class=o>:</span> <span class=nx>allRooms</span> <span class=p>})</span>  <span class=c1>// DOM khong lo
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>pdf</span>  <span class=o>=</span> <span class=kr>await</span> <span class=nx>htmlToPdf</span><span class=p>(</span><span class=nx>html</span><span class=p>)</span>                     <span class=c1>// ... timeout
+</span></code></pre></div><p><strong>Sau — chiến lược &ldquo;chia để trị&rdquo;:</strong></p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=kr>const</span> <span class=nx>CHUNK_SIZE</span> <span class=o>=</span> <span class=mi>150</span>  <span class=c1>// 150 phong moi chunk
+</span><span class=c1></span>
+<span class=k>if</span> <span class=p>(</span><span class=nx>totalRooms</span> <span class=o>&lt;=</span> <span class=nx>CHUNK_SIZE</span><span class=p>)</span> <span class=p>{</span>
+  <span class=c1>// Export nho: render 1 PDF binh thuong
+</span><span class=c1></span>  <span class=k>return</span> <span class=kr>await</span> <span class=nx>renderSinglePdf</span><span class=p>(</span><span class=nx>allRooms</span><span class=p>)</span>
+<span class=p>}</span>
+
+<span class=c1>// Export lon: chia thanh nhieu chunk
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>chunks</span> <span class=o>=</span> <span class=nx>splitIntoChunks</span><span class=p>(</span><span class=nx>allRooms</span><span class=p>,</span> <span class=nx>CHUNK_SIZE</span><span class=p>)</span>
+<span class=kr>const</span> <span class=nx>pdfBuffers</span> <span class=o>=</span> <span class=p>[]</span>
+
+<span class=c1>// Render tung batch (toi da 3 PDF song song de tranh het RAM)
+</span><span class=c1></span><span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=o>&lt;</span> <span class=nx>chunks</span><span class=p>.</span><span class=nx>length</span><span class=p>;</span> <span class=nx>i</span> <span class=o>+=</span> <span class=mi>3</span><span class=p>)</span> <span class=p>{</span>
+  <span class=kr>const</span> <span class=nx>batch</span> <span class=o>=</span> <span class=nx>chunks</span><span class=p>.</span><span class=nx>slice</span><span class=p>(</span><span class=nx>i</span><span class=p>,</span> <span class=nx>i</span> <span class=o>+</span> <span class=mi>3</span><span class=p>)</span>
+  <span class=kr>const</span> <span class=nx>buffers</span> <span class=o>=</span> <span class=kr>await</span> <span class=nb>Promise</span><span class=p>.</span><span class=nx>all</span><span class=p>(</span><span class=nx>batch</span><span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=nx>chunk</span> <span class=p>=&gt;</span> <span class=nx>renderSinglePdf</span><span class=p>(</span><span class=nx>chunk</span><span class=p>)))</span>
+  <span class=nx>pdfBuffers</span><span class=p>.</span><span class=nx>push</span><span class=p>(...</span><span class=nx>buffers</span><span class=p>)</span>
+<span class=p>}</span>
+
+<span class=c1>// Gop tat ca PDF lai thanh 1 file
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>mergedPdf</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>mergePdfs</span><span class=p>(</span><span class=nx>pdfBuffers</span><span class=p>)</span>
+</code></pre></div><p>Thay vì nuốt cả nồi cơm một lúc, giờ ăn từng chén nhỏ — rồi gộp lại thành một bữa hoàn chỉnh.</p>
+<hr>
+<h3 id=tội-ác-thứ-tư-bonus-sql-join-nặng-nề-cho-export-lớn>Tội ác thứ tư (bonus): SQL JOIN Nặng Nề Cho Export Lớn</h3>
+<p>Ngoài ba vấn đề trên, phần export danh sách phòng tổng quan còn có một vấn đề khác: truy vấn dữ liệu dùng <strong>một câu SQL JOIN phức tạp</strong> — nối phòng với đặt phòng, với hồ sơ khách, với lịch sử chặn phòng — tất cả trong một lần.</p>
+<p>Với dữ liệu nhỏ: câu SQL này chạy nhanh. Với dữ liệu lớn: MySQL optimizer phải làm việc nhiều hơn, index không được tận dụng tối đa, và kết quả là query chậm dần theo cấp số nhân.</p>
+<p>Giải pháp: <strong>tách query, join trong bộ nhớ</strong>.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// Buoc 1: Lay phong (nhanh, khong join)
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>rooms</span> <span class=o>=</span> <span class=kr>await</span> <span class=nx>ProRoomStatus</span><span class=p>.</span><span class=nx>findAll</span><span class=p>({</span> <span class=nx>where</span><span class=o>:</span> <span class=nx>condition</span> <span class=p>})</span>
+<span class=kr>const</span> <span class=nx>roomIds</span> <span class=o>=</span> <span class=nx>rooms</span><span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=nx>r</span> <span class=p>=&gt;</span> <span class=nx>r</span><span class=p>.</span><span class=nx>id</span><span class=p>)</span>
+
+<span class=c1>// Buoc 2: Lay du lieu lien quan song song
+</span><span class=c1></span><span class=kr>const</span> <span class=p>[</span><span class=nx>reservations</span><span class=p>,</span> <span class=nx>blockings</span><span class=p>,</span> <span class=nx>metadata</span><span class=p>]</span> <span class=o>=</span> <span class=kr>await</span> <span class=nb>Promise</span><span class=p>.</span><span class=nx>all</span><span class=p>([</span>
+  <span class=nx>fetchReservations</span><span class=p>({</span> <span class=nx>roomId</span><span class=o>:</span> <span class=p>{</span> <span class=k>in</span><span class=o>:</span> <span class=nx>roomIds</span> <span class=p>}</span> <span class=p>}),</span>
+  <span class=nx>fetchBlockings</span><span class=p>({</span> <span class=nx>roomId</span><span class=o>:</span> <span class=p>{</span> <span class=k>in</span><span class=o>:</span> <span class=nx>roomIds</span> <span class=p>}</span> <span class=p>}),</span>
+  <span class=nx>fetchMetadata</span><span class=p>()</span>
+<span class=p>])</span>
+
+<span class=c1>// Buoc 3: Join trong bo nho (O(1) lookup)
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>reservationMap</span> <span class=o>=</span> <span class=nx>groupBy</span><span class=p>(</span><span class=nx>reservations</span><span class=p>,</span> <span class=s1>&#39;roomId&#39;</span><span class=p>)</span>
+<span class=kr>const</span> <span class=nx>blockingMap</span>    <span class=o>=</span> <span class=nx>keyBy</span><span class=p>(</span><span class=nx>blockings</span><span class=p>,</span> <span class=s1>&#39;roomId&#39;</span><span class=p>)</span>
+
+<span class=kr>const</span> <span class=nx>result</span> <span class=o>=</span> <span class=nx>rooms</span><span class=p>.</span><span class=nx>map</span><span class=p>(</span><span class=nx>room</span> <span class=p>=&gt;</span> <span class=p>({</span>
+  <span class=p>...</span><span class=nx>room</span><span class=p>,</span>
+  <span class=nx>reservations</span><span class=o>:</span> <span class=nx>reservationMap</span><span class=p>[</span><span class=nx>room</span><span class=p>.</span><span class=nx>id</span><span class=p>]</span> <span class=o>||</span> <span class=p>[],</span>
+  <span class=nx>blocking</span><span class=o>:</span>     <span class=nx>blockingMap</span><span class=p>[</span><span class=nx>room</span><span class=p>.</span><span class=nx>id</span><span class=p>]</span> <span class=o>||</span> <span class=kc>null</span>
+<span class=p>}))</span>
+</code></pre></div><p>Giống như thay vì nhờ nhà hàng phục vụ từng món theo thực đơn phức tạp, bạn tự lấy nguyên liệu về và tự bày biện — nhanh hơn, kiểm soát được hơn.</p>
+<hr>
+<h2 id=phần-3-giải-pháp--tổng-kết>Phần 3: Giải Pháp — Tổng Kết</h2>
+<p>Tóm gọn lại, đây là những gì đã được thay đổi:</p>
+<table>
+<thead>
+<tr>
+<th>Vấn đề</th>
+<th>Trước</th>
+<th>Sau</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>N+1 query</td>
+<td>Query DB trong vòng lặp</td>
+<td>Batch fetch + in-memory hashmap</td>
+</tr>
+<tr>
+<td>Sequential fetch</td>
+<td>Await từng cái một</td>
+<td><code>Promise.all()</code> song song</td>
+</tr>
+<tr>
+<td>PDF timeout</td>
+<td>Render tất cả cùng lúc</td>
+<td>Chunked render + merge</td>
+</tr>
+<tr>
+<td>SQL JOIN nặng</td>
+<td>1 query JOIN phức tạp</td>
+<td>Nhiều query đơn + join trong memory</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Uu diem (Pros):</strong></p>
+<ul>
+<li>Toc do cai thien ro ret — khong can them server hay tang tai nguyen</li>
+<li>Code ro rang hon, moi buoc co log rieng de debug</li>
+<li>Khong thay doi API hay business logic — chi thay doi cach lay du lieu</li>
+</ul>
+<p><strong>Nhuoc diem (Cons):</strong></p>
+<ul>
+<li>Code phức tạp hơn trước, người đọc lần đầu cần hiểu flow chunking</li>
+<li>Chunked PDF merge yêu cầu thêm dependency (<code>pdf-lib</code>) — thêm một điểm có thể fail</li>
+<li><code>Promise.all()</code> có nghĩa là nếu một trong các fetch fail, tất cả fail — cần xử lý lỗi cẩn thận hơn</li>
+</ul>
+<hr>
+<h2 id=phần-4-kiến-thức-đại-học-ứng-dụng>Phần 4: Kiến Thức Đại Học Ứng Dụng</h2>
+<p>Hồi đại học, tôi học môn <strong>Cơ Sở Dữ Liệu</strong> và môn <strong>Giải Thuật</strong>. Tôi tưởng hai môn đó chỉ để&mldr; thi. Rồi đi làm tôi mới hiểu — mấy ông thầy dạy những thứ đó là có lý do.</p>
+<p><strong>Từ môn Cơ Sở Dữ Liệu:</strong></p>
+<p>Bài học về <strong>N+1 query</strong> thực ra nằm ngay trong chương &ldquo;Tối ưu hóa truy vấn&rdquo;. Thầy dạy: hãy giảm số lần round-trip đến database. Một câu <code>WHERE id IN (...)</code> bao giờ cũng tốt hơn N câu <code>WHERE id = ?</code> trong vòng lặp. Hồi đó tôi gật đầu rồi&mldr; quên. Đến khi gặp bug thật mới nhớ ra.</p>
+<p><strong>Từ môn Giải Thuật và Cấu Trúc Dữ Liệu:</strong></p>
+<p>HashMap (hay dictionary, object trong JavaScript) có độ phức tạp tra cứu O(1) — hằng số, không phụ thuộc kích thước dữ liệu. Bài học này nằm ở chương 3 cuốn giáo trình mà tôi từng học thuộc để thi rồi quên ngay sau đó. Nhưng ở đây, nó cứu cả cái báo cáo: thay vì tìm kiếm tuyến tính O(n) cho mỗi lý do, dùng map để lookup O(1).</p>
+<p><strong>Từ môn Hệ Điều Hành:</strong></p>
+<p>Khái niệm <strong>concurrency</strong> — chạy nhiều tác vụ đồng thời — là nền tảng của <code>Promise.all()</code>. Thay vì một luồng chờ I/O xong mới làm tiếp, Node.js event loop cho phép nhiều I/O operations chạy &ldquo;đồng thời&rdquo; (thực ra là xen kẽ nhau, nhưng kết quả thực tế là nhanh hơn nhiều). Hồi học OS tôi hay ngủ gật — nhưng cái khái niệm đó bây giờ tôi dùng mỗi ngày.</p>
+<hr>
+<h2 id=phần-5-bài-học-rút-ra>Phần 5: Bài Học Rút Ra</h2>
+<ul>
+<li>
+<p><strong>N+1 query không tự nó hiện ra rõ ràng</strong> — nó ẩn trong vòng lặp, chạy đúng với dữ liệu nhỏ, và chỉ lộ mặt khi production scale lên. Hãy luôn hỏi: &ldquo;Có DB call nào nằm trong loop không?&rdquo;</p>
+</li>
+<li>
+<p><strong>Sequential await không sai — nhưng có thể sai về hiệu năng.</strong> Trước khi viết <code>await A; await B; await C</code>, hãy dừng lại hỏi: A và B có cần nhau không? Nếu không, dùng <code>Promise.all</code>.</p>
+</li>
+<li>
+<p><strong>Puppeteer (và các tool render nặng) cần được &ldquo;chia phần ăn&rdquo;.</strong> Không có tool nào chạy tốt với dữ liệu vô hạn. Chunking là kỹ thuật quan trọng, và merge sau đó là bài toán hoàn toàn giải được.</p>
+</li>
+<li>
+<p><strong>Join trong SQL tốt khi data vừa phải. Join trong memory tốt hơn khi bạn kiểm soát được kích thước từng query riêng lẻ.</strong> Đây không phải quy tắc tuyệt đối — nhưng đáng cân nhắc khi gặp timeout.</p>
+</li>
+<li>
+<p>Và cuối cùng: <strong>code chạy được != code chạy đúng với mọi scale.</strong> Cái ticket timeout hôm đó nhắc tôi rằng — hiệu năng không phải tính năng optional, nó là một phần của tính đúng đắn.</p>
+</li>
+</ul>
+<hr>
+<p><em>Giờ thì cái báo cáo chạy ngon. Khách sạn lớn hay nhỏ đều xuất được PDF. Cà phê buổi sáng hôm đó nguội rồi — nhưng ticket đã được đóng.</em></p>
+<hr>
+</article>
+</div>
+</main>
+</body></html>

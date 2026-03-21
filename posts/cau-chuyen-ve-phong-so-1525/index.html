@@ -1,0 +1,217 @@
+<!doctype html><html lang=en-us><head>
+<meta charset=utf-8>
+<meta http-equiv=x-ua-compatible content="IE=edge">
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="Phần 1: Mở Đầu Có hai loại bug trên đời: loại mà bạn tìm ra ngay, và loại mà bạn nhìn thẳng vào mặt nó mà vẫn không thấy.
+Bug này thuộc loại thứ ba — loại mà hệ thống nhìn thẳng vào dữ liệu mà vẫn không thấy.
+Phòng 1525 tồn tại. Task của nó nằm trong danh sách, status NEW, rõ ràng như ban ngày. Nhưng gõ &ldquo;1525&rdquo; vào ô tìm kiếm — hệ thống trả về 0 kết quả.">
+<title>
+Câu Chuyện Về Phòng Số 1525
+</title>
+<link rel="shortcut icon" type=image/x-icon href=/>
+<link rel=stylesheet href=/css/main.10776b9b86bf7e3aca232a6c5e4fbdc3baacf45c0cc3a1802995836aa1689368e8fadebd3e46fdc9ad87eab1f834f5bbb28dbb2b23fea73ae3e57c258caef3bd.css integrity="sha512-EHdrm4a/fjrKIypsXk+9w7qs9FwMw6GAKZWDaqFok2jo+t69Pkb9ya2H6rH4NPW7so27KyP+pzrj5XwljK7zvQ==">
+<link rel=stylesheet href=/css/custom.css>
+</head>
+<body a=light>
+<main class=page-content aria-label=Content>
+<div class=w>
+<a href=/>..</a>
+<article>
+<p class=post-meta>
+<time datetime="2026-03-12 10:27:26 +0700 +07">
+2026-03-12
+</time>
+</p>
+<h1>Câu Chuyện Về Phòng Số 1525</h1>
+<h2 id=phần-1-mở-đầu>Phần 1: Mở Đầu</h2>
+<p>Có hai loại bug trên đời: loại mà bạn tìm ra ngay, và loại mà bạn nhìn thẳng vào mặt nó mà vẫn không thấy.</p>
+<p>Bug này thuộc loại thứ ba — loại mà <strong>hệ thống</strong> nhìn thẳng vào dữ liệu mà vẫn không thấy.</p>
+<p>Phòng 1525 tồn tại. Task của nó nằm trong danh sách, status NEW, rõ ràng như ban ngày. Nhưng gõ &ldquo;1525&rdquo; vào ô tìm kiếm — hệ thống trả về 0 kết quả. Gõ &ldquo;2223&rdquo; — ra ngay. Gõ &ldquo;Lầu 28&rdquo; — ra ngay. Gõ lại &ldquo;1525&rdquo; — <strong>im lặng</strong>.</p>
+<p>Cái đáng sợ nhất không phải là hệ thống trả sai. Cái đáng sợ nhất là nó trả sai <strong>một cách chọn lọc</strong>. Phòng này tìm được, phòng kia thì không. Cùng API, cùng logic, cùng filter — chỉ khác số phòng. Kiểu bug này khiến bạn ngồi nhìn code 30 phút mà không biết nghi ngờ chỗ nào, vì mọi thứ trông đều&mldr; đúng.</p>
+<p>Cho đến khi bạn nhận ra: dữ liệu nằm ở một nơi, nhưng hệ thống đi tìm ở nơi khác.</p>
+<hr>
+<h2 id=phần-2-vấn-đề-và-bối-cảnh>Phần 2: Vấn Đề Và Bối Cảnh</h2>
+<h3 id=hệ-thống-lưu-thông-tin-phòng-như-thế-nào>Hệ thống lưu thông tin phòng như thế nào?</h3>
+<p>Trong service quản lý task này, thông tin phòng (room) của một task được lưu ở <strong>hai nơi khác nhau</strong>:</p>
+<p><strong>Nơi 1: Ngay trên bảng chính <code>task</code></strong></p>
+<p>Mỗi bản ghi task có các cột:</p>
+<ul>
+<li><code>areaName</code> — tên phòng/khu vực, ví dụ &ldquo;1525&rdquo; hoặc &ldquo;Lầu 32&rdquo;</li>
+<li><code>areaId</code> — mã UUID của phòng</li>
+<li><code>roomNumber</code> — số phòng</li>
+</ul>
+<p>Đây là cách &ldquo;cũ&rdquo;, đơn giản: một task — một phòng.</p>
+<p><strong>Nơi 2: Bảng con <code>task_areas</code></strong></p>
+<p>Một bảng riêng, liên kết với task qua <code>taskId</code>. Mỗi dòng là một phòng/khu vực. Cách này hỗ trợ <strong>nhiều phòng cho một task</strong> — ví dụ task &ldquo;Lau tầng 3&rdquo; ảnh hưởng đến cả phòng 301, 302, 303.</p>
+<h3 id=dữ-liệu-được-tạo-ra-sao>Dữ liệu được tạo ra sao?</h3>
+<p>Khi tạo task, model có một đoạn logic fallback như sau:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=nx>dataInput</span><span class=p>.</span><span class=nx>areaId</span> <span class=o>=</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>areaId</span> <span class=o>||</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>roomId</span>
+<span class=nx>dataInput</span><span class=p>.</span><span class=nx>areaName</span> <span class=o>=</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>areaName</span> <span class=o>||</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>roomNumber</span>
+</code></pre></div><p>Dịch nôm na: &ldquo;Nếu client gửi <code>roomNumber</code> mà không gửi <code>areaName</code>, thì lấy <code>roomNumber</code> làm <code>areaName</code>.&rdquo;</p>
+<p>Nghe hợp lý. Nhưng vấn đề là: <strong>khi client gửi dữ liệu bằng <code>areas</code> array</strong> (cách mới, hỗ trợ nhiều phòng), thì <code>roomNumber</code> và <code>areaName</code> đều <strong>không được gửi</strong>. Kết quả:</p>
+<ul>
+<li><code>task.areaName</code> = <strong>NULL</strong></li>
+<li><code>task.roomNumber</code> = <strong>NULL</strong></li>
+<li>Bảng <code>task_areas</code> có bản ghi với <code>areaName = "Lầu 32"</code> — nhưng <strong>không ai hỏi nó cả</strong></li>
+</ul>
+<h3 id=tìm-kiếm-hoạt-động-ra-sao>Tìm kiếm hoạt động ra sao?</h3>
+<p>Khi user gõ &ldquo;1525&rdquo; vào ô search, API nhận tham số <code>s=1525</code> và tạo một mệnh đề <code>OR</code>:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=nx>preCondition</span><span class=p>.</span><span class=nx>$or</span> <span class=o>=</span> <span class=p>[</span>
+  <span class=p>{</span><span class=nx>code</span><span class=o>:</span> <span class=nx>s</span><span class=p>},</span>                              <span class=c1>// mã task
+</span><span class=c1></span>  <span class=p>{</span><span class=nx>tmCode</span><span class=o>:</span> <span class=nx>s</span><span class=p>},</span>                            <span class=c1>// số task
+</span><span class=c1></span>  <span class=p>{</span><span class=nx>name</span><span class=o>:</span> <span class=p>{</span><span class=nx>$like</span><span class=o>:</span> <span class=sb>`%</span><span class=si>${</span><span class=nx>s</span><span class=si>}</span><span class=sb>%`</span><span class=p>}},</span>              <span class=c1>// tên task
+</span><span class=c1></span>  <span class=p>{</span><span class=nx>guestName</span><span class=o>:</span> <span class=p>{</span><span class=nx>$like</span><span class=o>:</span> <span class=sb>`%</span><span class=si>${</span><span class=nx>s</span><span class=si>}</span><span class=sb>%`</span><span class=p>}},</span>         <span class=c1>// tên khách
+</span><span class=c1></span>  <span class=p>{</span><span class=nx>areaName</span><span class=o>:</span> <span class=p>{</span><span class=nx>$like</span><span class=o>:</span> <span class=sb>`%</span><span class=si>${</span><span class=nx>s</span><span class=si>}</span><span class=sb>%`</span><span class=p>}},</span>          <span class=c1>// tên phòng — chỉ trên bảng task
+</span><span class=c1></span>  <span class=p>{</span><span class=nx>roomNumber</span><span class=o>:</span> <span class=p>{</span><span class=nx>$like</span><span class=o>:</span> <span class=sb>`%</span><span class=si>${</span><span class=nx>s</span><span class=si>}</span><span class=sb>%`</span><span class=p>}},</span>        <span class=c1>// số phòng — chỉ trên bảng task
+</span><span class=c1></span>  <span class=p>{</span><span class=nx>assigneedName</span><span class=o>:</span> <span class=p>{</span><span class=nx>$like</span><span class=o>:</span> <span class=sb>`%</span><span class=si>${</span><span class=nx>s</span><span class=si>}</span><span class=sb>%`</span><span class=p>}},</span>     <span class=c1>// người xử lý
+</span><span class=c1></span>  <span class=p>{</span><span class=nx>note</span><span class=o>:</span> <span class=p>{</span><span class=nx>$like</span><span class=o>:</span> <span class=sb>`%</span><span class=si>${</span><span class=nx>s</span><span class=si>}</span><span class=sb>%`</span><span class=p>}},</span>              <span class=c1>// ghi chú
+</span><span class=c1></span>  <span class=c1>// ...
+</span><span class=c1></span><span class=p>]</span>
+</code></pre></div><p>Nhìn qua thì đầy đủ. Nhưng tất cả đều tìm trên <strong>bảng <code>task</code></strong>. Không ai hỏi <strong>bảng <code>task_areas</code></strong>.</p>
+<p>Nên nếu <code>task.areaName</code> là NULL (vì dữ liệu chỉ nằm ở <code>task_areas</code>), thì <code>LIKE '%1525%'</code> so với NULL = <strong>không bao giờ match</strong>.</p>
+<h3 id=tại-sao-một-số-phòng-lại-tìm-được>Tại sao một số phòng lại tìm được?</h3>
+<table>
+<thead>
+<tr>
+<th>Cách client gửi dữ liệu</th>
+<th><code>task.areaName</code></th>
+<th><code>task_areas</code></th>
+<th>Tìm được?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gửi <code>roomNumber: "1525"</code> trực tiếp</td>
+<td><code>"1525"</code></td>
+<td>Không có</td>
+<td>Tìm được</td>
+</tr>
+<tr>
+<td>Gửi <code>areas: [{areaName: "Lầu 32"}]</code></td>
+<td>NULL</td>
+<td><code>"Lầu 32"</code></td>
+<td><strong>Không</strong></td>
+</tr>
+<tr>
+<td>Gửi cả hai</td>
+<td><code>"Lầu 32"</code></td>
+<td><code>"Lầu 32"</code></td>
+<td>Tìm được</td>
+</tr>
+</tbody>
+</table>
+<p>Phòng 2223 tìm được vì task của nó được tạo với <code>roomNumber</code> trực tiếp — dữ liệu nằm trên bảng <code>task</code>. Phòng 1525 không tìm được vì task của nó được tạo với <code>areas</code> array — dữ liệu chỉ nằm ở <code>task_areas</code>.</p>
+<h3 id=điều-hài-hước-hơn>Điều hài hước hơn</h3>
+<p>Endpoint <strong>đếm số lượng</strong> (<code>/states</code> — hiển thị số trên tab badge &ldquo;NEW: 5&rdquo;) thì lại <strong>có</strong> subquery để tìm trong <code>task_areas</code>. Nên tab badge hiển thị đúng: &ldquo;5 task NEW&rdquo;. Nhưng khi user bấm vào tab để xem danh sách, endpoint <strong>lấy danh sách</strong> (<code>/getBatch</code>) lại <strong>không có</strong> subquery đó.</p>
+<p>Kết quả: badge nói &ldquo;5&rdquo;, nhưng chỉ hiển thị 3. User nghĩ app bị lỗi. Và đúng là app bị lỗi thật.</p>
+<hr>
+<h2 id=phần-3-giải-pháp>Phần 3: Giải Pháp</h2>
+<h3 id=fix-1-thêm-subquery-vào-tất-cả-endpoint-tìm-kiếm>Fix 1: Thêm subquery vào tất cả endpoint tìm kiếm</h3>
+<p>Đây là fix chính. Thêm một <strong>correlated subquery</strong> (truy vấn con liên kết) vào mệnh đề <code>OR</code>:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=k>if</span> <span class=p>(</span><span class=nx>scopes</span> <span class=o>&amp;&amp;</span> <span class=nx>scopes</span><span class=p>.</span><span class=nx>indexOf</span><span class=p>(</span><span class=s1>&#39;areas&#39;</span><span class=p>)</span> <span class=o>!==</span> <span class=o>-</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+  <span class=kr>const</span> <span class=nx>escapedS</span> <span class=o>=</span> <span class=nx>SqlString</span><span class=p>.</span><span class=nx>escape</span><span class=p>(</span><span class=sb>`%</span><span class=si>${</span><span class=nx>s</span><span class=si>}</span><span class=sb>%`</span><span class=p>);</span>
+  <span class=nx>preCondition</span><span class=p>.</span><span class=nx>$or</span><span class=p>.</span><span class=nx>push</span><span class=p>(</span><span class=nx>sequelize</span><span class=p>.</span><span class=nx>literal</span><span class=p>(</span><span class=sb>`
+</span><span class=sb>    (SELECT taskAreas.id
+</span><span class=sb>     FROM task_areas AS taskAreas
+</span><span class=sb>     WHERE taskAreas.status = true
+</span><span class=sb>       AND taskAreas.isDeleted = false
+</span><span class=sb>       AND taskAreas.taskId = Task.id
+</span><span class=sb>       AND taskAreas.areaName LIKE </span><span class=si>${</span><span class=nx>escapedS</span><span class=si>}</span><span class=sb>)
+</span><span class=sb>  `</span><span class=p>));</span>
+<span class=p>}</span>
+</code></pre></div><p><strong>Giải thích từng dòng:</strong></p>
+<ul>
+<li>
+<p><code>scopes.indexOf('areas') !== -1</code> — Chỉ thêm subquery khi client yêu cầu scope <code>areas</code>. App mobile luôn gửi <code>scopes=service,staff,room,countItem,areas</code>, nên điều kiện này luôn đúng trong thực tế. Nhưng nếu có client khác không cần, ta không làm chậm query của họ.</p>
+</li>
+<li>
+<p><code>SqlString.escape(...)</code> — Chống SQL injection. Biến user input thành chuỗi an toàn trước khi nhúng vào SQL.</p>
+</li>
+<li>
+<p><code>sequelize.literal(...)</code> — Nói với ORM: &ldquo;Đây là SQL thô, đừng có parse nó thành tên cột.&rdquo; Cần thiết vì ta đang query một bảng khác (<code>task_areas</code>) không nằm trong model chính.</p>
+</li>
+<li>
+<p>Subquery: Với mỗi dòng task ở outer query, MySQL chạy subquery này để kiểm tra: &ldquo;Có bản ghi nào trong <code>task_areas</code> chưa bị xoá, đang active, thuộc task này, và có <code>areaName</code> khớp với từ khoá không?&rdquo; Nếu có, trả về <code>id</code> (truthy), mệnh đề OR pass.</p>
+</li>
+</ul>
+<p><strong>Áp dụng cho 3 endpoint thiếu:</strong></p>
+<ul>
+<li>Staff <code>getBatch</code> (danh sách task — endpoint chính từ bug report)</li>
+<li>Staff <code>getMyTask</code> (task của tôi)</li>
+<li>Admin <code>getMyTask</code> (task của tôi — phía admin)</li>
+</ul>
+<h3 id=fix-2-sửa-like-wildcard-bị-thiếu>Fix 2: Sửa LIKE wildcard bị thiếu</h3>
+<p>Endpoint <code>states</code> đã có subquery, nhưng dùng <code>SqlString.escape(\</code>${s}`)<code>thay vì</code>SqlString.escape(`%${s}%`)<code>. Thiếu dấu </code>%<code>nghĩa là</code>LIKE &lsquo;1525&rsquo;` — exact match, không phải partial match. Như bạn gõ tìm kiếm trên Google mà phải gõ đúng từng chữ cái, không được thiếu.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-diff data-lang=diff><span class=gd>- const escapedS = SqlString.escape(`${s}`);
+</span><span class=gd></span><span class=gi>+ const escapedS = SqlString.escape(`%${s}%`);
+</span></code></pre></div><p>Phiên bản admin đã dùng <code>%${s}%</code> từ đầu. Chỉ phiên bản staff bị sai.</p>
+<h3 id=fix-3-đồng-bộ-dữ-liệu-hai-chiều-khi-tạocập-nhật-task>Fix 3: Đồng bộ dữ liệu hai chiều khi tạo/cập nhật task</h3>
+<p>Đây là fix &ldquo;phòng ngừa tương lai&rdquo;. Thay vì chỉ sửa search, ta đảm bảo dữ liệu luôn nhất quán ở cả hai nơi:</p>
+<p><strong>Chiều A — <code>areas</code> array -> bảng <code>task</code>:</strong></p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=k>if</span> <span class=p>(</span><span class=nx>dataInput</span><span class=p>.</span><span class=nx>areas</span> <span class=o>&amp;&amp;</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>areas</span><span class=p>.</span><span class=nx>length</span> <span class=o>&gt;</span> <span class=mi>0</span> <span class=o>&amp;&amp;</span> <span class=o>!</span><span class=nx>taskInstance</span><span class=p>.</span><span class=nx>areaName</span><span class=p>)</span> <span class=p>{</span>
+  <span class=nx>taskInstance</span><span class=p>.</span><span class=nx>areaName</span> <span class=o>=</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>areas</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=nx>areaName</span><span class=p>;</span>
+  <span class=nx>taskInstance</span><span class=p>.</span><span class=nx>areaId</span> <span class=o>=</span> <span class=nx>taskInstance</span><span class=p>.</span><span class=nx>areaId</span> <span class=o>||</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>areas</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=nx>areaId</span><span class=p>;</span>
+  <span class=nx>taskInstance</span><span class=p>.</span><span class=nx>areaType</span> <span class=o>=</span> <span class=nx>taskInstance</span><span class=p>.</span><span class=nx>areaType</span> <span class=o>||</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>areas</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=nx>areaType</span> <span class=o>||</span> <span class=s1>&#39;room&#39;</span><span class=p>;</span>
+  <span class=kr>await</span> <span class=nx>taskInstance</span><span class=p>.</span><span class=nx>save</span><span class=p>({...</span><span class=nx>options</span><span class=p>,</span> <span class=nx>tracking</span><span class=o>:</span> <span class=kc>false</span><span class=p>});</span>
+<span class=p>}</span>
+</code></pre></div><p>Nếu client gửi <code>areas</code> mà <code>areaName</code> trên bảng task vẫn NULL, lấy tên của area đầu tiên gán vào. <code>tracking: false</code> để không ghi audit — đây là sync nội bộ, không phải thao tác của user.</p>
+<p><strong>Chiều B — bảng <code>task</code> -> <code>task_areas</code>:</strong></p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>dataInput</span><span class=p>.</span><span class=nx>areas</span> <span class=o>&amp;&amp;</span> <span class=p>(</span><span class=nx>dataInput</span><span class=p>.</span><span class=nx>roomId</span> <span class=o>||</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>areaId</span><span class=p>))</span> <span class=p>{</span>
+  <span class=nx>dataInput</span><span class=p>.</span><span class=nx>areas</span> <span class=o>=</span> <span class=p>[{</span>
+    <span class=nx>areaId</span><span class=o>:</span> <span class=nx>taskInstance</span><span class=p>.</span><span class=nx>areaId</span> <span class=o>||</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>roomId</span><span class=p>,</span>
+    <span class=nx>areaName</span><span class=o>:</span> <span class=nx>taskInstance</span><span class=p>.</span><span class=nx>areaName</span> <span class=o>||</span> <span class=nx>dataInput</span><span class=p>.</span><span class=nx>roomNumber</span><span class=p>,</span>
+    <span class=nx>areaType</span><span class=o>:</span> <span class=nx>taskInstance</span><span class=p>.</span><span class=nx>areaType</span> <span class=o>||</span> <span class=s1>&#39;room&#39;</span>
+  <span class=p>}];</span>
+<span class=p>}</span>
+</code></pre></div><p>Nếu client gửi <code>roomNumber</code> mà không gửi <code>areas</code>, tạo một <code>areas</code> array &ldquo;ảo&rdquo; từ dữ liệu trên bảng task. Array này sẽ được xử lý bởi hàm <code>saveAreasList</code> ở phía dưới, tự động tạo bản ghi trong <code>task_areas</code>.</p>
+<p>Logic này được áp dụng cho cả <strong>create</strong> và <strong>update</strong>.</p>
+<h3 id=ưu-điểm>Ưu điểm</h3>
+<ul>
+<li>Fix search ngay lập tức cho <strong>dữ liệu cũ</strong> (subquery tìm trong <code>task_areas</code>)</li>
+<li>Ngăn dữ liệu mới bị lệch (đồng bộ hai chiều)</li>
+<li>Không cần migration database hay backfill dữ liệu cũ</li>
+<li>Performance tốt: <code>EXPLAIN</code> cho thấy subquery chỉ scan 1 dòng nhờ index <code>idx_isDeleted_status_taskId</code></li>
+</ul>
+<h3 id=nhược-điểm--trade-off>Nhược điểm / Trade-off</h3>
+<ul>
+<li>Correlated subquery chạy mỗi dòng của outer query — với dataset lớn có thể chậm hơn JOIN. Nhưng thực tế, outer query đã filter theo <code>hotelId</code> + <code>state</code> + <code>createdAt</code>, nên số dòng rất nhỏ.</li>
+<li>Dữ liệu cũ vẫn lệch (task.areaName = NULL) — chỉ là subquery &ldquo;bù&rdquo; khi search. Muốn clean hoàn toàn phải chạy script backfill.</li>
+<li>Logic đồng bộ nằm ở route handler, không phải model — nếu có endpoint khác tạo task mà không đi qua đây, vẫn có thể bị lệch.</li>
+</ul>
+<hr>
+<h2 id=phần-4-kiến-thức-đại-học-ứng-dụng>Phần 4: Kiến Thức Đại Học Ứng Dụng</h2>
+<h3 id=môn-cơ-sở-dữ-liệu-dbms>Môn Cơ Sở Dữ Liệu (DBMS)</h3>
+<p><strong>Correlated subquery</strong> là kiến thức kinh điển trong môn DBMS. Hồi đi học, thầy dạy:</p>
+<blockquote>
+<p>&ldquo;Correlated subquery là subquery tham chiếu đến bảng của outer query. Nó chạy một lần cho mỗi dòng của outer query.&rdquo;</p>
+</blockquote>
+<p>Hồi đó tôi nghĩ: &ldquo;Vậy thì chậm lắm, ai mà dùng?&rdquo; Hoá ra thực tế MySQL optimizer khá thông minh. Khi có index phù hợp (trong trường hợp này là <code>idx_isDeleted_status_taskId</code>), mỗi lần chạy subquery chỉ là một <strong>index seek</strong> — O(log n), không phải full table scan.</p>
+<p>Bài học: correlated subquery không xấu. Nó xấu khi <strong>không có index</strong>. Giống như dao không nguy hiểm, người cầm dao mới nguy hiểm.</p>
+<h3 id=môn-kiến-trúc-phần-mềm>Môn Kiến Trúc Phần Mềm</h3>
+<p>Vấn đề gốc của bug này là <strong>data duplication without synchronization</strong> — dữ liệu được lưu ở hai nơi nhưng không có cơ chế đồng bộ. Đây là lỗi vi phạm nguyên tắc <strong>Single Source of Truth</strong> (SSOT).</p>
+<p>Trong lý thuyết, bạn nên có <strong>một nơi duy nhất</strong> lưu thông tin phòng. Nhưng thực tế, bảng <code>task</code> cần <code>areaName</code> để search nhanh (không cần JOIN), và <code>task_areas</code> cần tồn tại để hỗ trợ nhiều phòng. Nên ta chấp nhận duplication, nhưng phải <strong>đồng bộ</strong>.</p>
+<p>Giải pháp của chúng ta là <strong>bidirectional sync</strong> — tương tự như cách Git merge hoạt động: thay đổi ở nhánh nào thì đồng bộ sang nhánh kia.</p>
+<hr>
+<h2 id=phần-5-bài-học-rút-ra>Phần 5: Bài Học Rút Ra</h2>
+<ul>
+<li>
+<p><strong>Dữ liệu lưu hai nơi mà không đồng bộ = bug chờ nổ</strong>. Nếu bạn có cột <code>areaName</code> trên bảng chính VÀ bảng con, bạn PHẢI đảm bảo chúng luôn khớp nhau. Không có ngoại lệ.</p>
+</li>
+<li>
+<p><strong>Kiểm tra tất cả endpoint, không chỉ endpoint bị report</strong>. Bug report chỉ nói về <code>getBatch</code>, nhưng <code>getMyTask</code> cũng bị. Và <code>states</code> thì có subquery nhưng thiếu wildcard <code>%</code>. Mỗi endpoint là một &ldquo;lối vào&rdquo; khác nhau của cùng một logic — thiếu một cái là mất nhất quán.</p>
+</li>
+<li>
+<p><strong>LIKE không có <code>%</code> cũng như tìm kiếm mà phải gõ đúng 100% — vô nghĩa</strong>. <code>LIKE '1525'</code> tương đương <code>= '1525'</code>. Phải là <code>LIKE '%1525%'</code> mới là &ldquo;tìm kiếm&rdquo;.</p>
+</li>
+<li>
+<p><strong>Subquery không chậm nếu có index</strong>. Đừng sợ correlated subquery. Chạy <code>EXPLAIN</code> trước khi kết luận. Trong case này, MySQL scan đúng 1 dòng nhờ compound index.</p>
+</li>
+<li>
+<p><strong>Fix search chỉ là &ldquo;băng dán&rdquo; — fix data mới là &ldquo;chữa bệnh&rdquo;</strong>. Subquery giúp tìm dữ liệu cũ bị lệch. Nhưng đồng bộ hai chiều khi create/update mới ngăn vấn đề tái diễn. Luôn fix cả hai.</p>
+</li>
+</ul>
+<hr>
+</article>
+</div>
+</main>
+</body></html>
