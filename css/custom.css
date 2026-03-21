@@ -38,17 +38,17 @@ ul ul li {
 
 /* Style links */
 a {
-    color: #007acc;
-    text-decoration: none;
+    color: black;
+    text-decoration: underline;
 }
 
 a:hover {
-    text-decoration: underline;
+    text-decoration: none;
 }
 
 /* Style dates */
 span {
-    color: #666;
+    color: black;
     font-size: 0.9em;
 }
 
