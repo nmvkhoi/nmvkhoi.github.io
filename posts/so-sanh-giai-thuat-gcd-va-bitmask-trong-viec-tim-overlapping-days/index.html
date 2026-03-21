@@ -72,6 +72,9 @@ Khoảng B: 15/01 - 28/02  | weekdays: [4, 5, 6]  (thứ 4, 5, 6)
 → Weekday trùng: [4] (thứ 4 có mặt ở cả hai)
 → KẾT LUẬN: CÓ OVERLAP
 </code></pre><p>Bây giờ, làm sao detect điều đó một cách hiệu quả?</p>
+<blockquote>
+<p><strong>Quy ước ngày trong tuần</strong> dùng xuyên suốt bài: <code>1=Chủ Nhật, 2=Thứ Hai, 3=Thứ Ba, 4=Thứ Tư, 5=Thứ Năm, 6=Thứ Sáu, 7=Thứ Bảy</code>. Đây là quy ước legacy — khác với <code>Date.getDay()</code> của JavaScript (vốn trả về 0=Sunday). Tất cả code snippet đều theo quy ước này.</p>
+</blockquote>
 <hr>
 <h2 id=phần-3-giải-pháp-cũ--toán-học-với-số-nguyên-tố-và-gcd>Phần 3: Giải Pháp Cũ — Toán Học Với Số Nguyên Tố Và GCD</h2>
 <h3 id=cách-hoạt-động>Cách hoạt động</h3>
@@ -95,7 +98,14 @@ Khoảng B: 15/01 - 28/02  | weekdays: [4, 5, 6]  (thứ 4, 5, 6)
 </span><span class=c1>// weekdays = [2, 4, 6]  →  checksum = 5 * 11 * 17 = 935
 </span><span class=c1>// weekdays = [4, 5, 6]  →  checksum = 11 * 13 * 17 = 2431
 </span><span class=c1>// weekdays = [3, 5]     →  checksum = 7 * 13 = 91
-</span></code></pre></div><p>Checksum này được lưu vào database cùng với record.</p>
+</span></code></pre></div><p><strong>Tại sao phải là số nguyên tố, không phải 1, 2, 3&mldr;7 hay powers of 2?</strong></p>
+<p>Đây là câu hỏi quan trọng nhất. Ba lý do:</p>
+<ul>
+<li><strong>Nếu dùng 1,2,&mldr;7 với phép cộng</strong>: <code>checksum([2,4]) = 2+4 = 6</code> và <code>checksum([1,2,3]) = 1+2+3 = 6</code> — hai tập hoàn toàn khác nhau cho ra cùng checksum. Collision không thể dùng được.</li>
+<li><strong>Nếu dùng powers of 2 (1,2,4,8,&mldr;) với phép nhân</strong>: kết quả là bitmask! Approach này đúng nhưng khi đó không cần GCD nữa — <code>checkA & checkB != 0</code> là đủ. Cách này chính là bitmask approach ở phần sau của bài.</li>
+<li><strong>Dùng số nguyên tố phân biệt với phép nhân</strong>: theo <strong>Định lý phân tích nhân tử</strong> (mọi số nguyên > 1 có duy nhất một cách viết dưới dạng tích các số nguyên tố), mỗi tập weekdays cho ra một tích duy nhất. Hai tích có GCD > 1 khi và chỉ khi chúng chia sẻ ít nhất một thừa số nguyên tố chung — tức là chia sẻ ít nhất một ngày trong tuần.</li>
+</ul>
+<p>Vì vậy mảng là <code>[3, 5, 7, 11, 13, 17, 19]</code> — 7 số nguyên tố nhỏ nhất lớn hơn 2. (Bỏ 2 vì mọi tích số nguyên tố chẵn đều có GCD = 2 với nhau, gây false positive.)</p>
 <p><strong>Bước 3: Khi query, dùng hàm GCD trong MySQL</strong></p>
 <div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>PolicyDetail</span><span class=w>
 </span><span class=w></span><span class=k>WHERE</span><span class=w> </span><span class=n>parentId</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=p>:</span><span class=n>parentId</span><span class=w>
@@ -114,7 +124,12 @@ checkSum A = 5 * 11 * 17 = 935   (thứ 2, 4, 6)
 checkSum C = 7 * 13 * 19 = 1729  (thứ 3, 5, 7)
 GCD(935, 1729) = 1               → KHÔNG có ngày chung
 </code></pre><p>Elegant không? Toán học số học ứng dụng thực tế luôn.</p>
-<p>Ngoài ra, trong một số trường hợp in-memory (ví dụ trong service quản lý rate season), hệ thống dùng cách trực tiếp hơn: duyệt từng ngày trong khoảng, xây dựng full danh sách ngày, rồi đếm xem có ngày nào xuất hiện hai lần không:</p>
+<p><strong>Tóm lại, approach GCD dùng hai cơ chế khác nhau cho hai layer khác nhau:</strong></p>
+<ul>
+<li><strong>DB-side</strong> (Sub-approach 1): lưu <code>weekdaysChecksum</code> vào cột DB, query bằng <code>fn_gcd()</code> ngay trong SQL. MySQL lo hết, app không cần fetch data về.</li>
+<li><strong>In-memory</strong> (Sub-approach 2): khi cần validate trong service layer trước khi lưu, code dùng <code>getDateListFromTo()</code> để sinh danh sách ngày → đếm bằng plain <code>{}</code> object. Chậm hơn nhiều và là cái mà benchmark phần sau đo.</li>
+</ul>
+<p>Dưới đây là Sub-approach 2 in-memory:</p>
 <div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=kd>function</span> <span class=nx>checkHasOverlap</span><span class=p>(</span><span class=nx>arrDateConfig</span> <span class=o>=</span> <span class=p>[])</span> <span class=p>{</span>
   <span class=kd>let</span> <span class=nx>objCheck</span> <span class=o>=</span> <span class=p>{};</span>
   <span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=o>&lt;</span> <span class=nx>arrDateConfig</span><span class=p>.</span><span class=nx>length</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
@@ -247,159 +262,396 @@ GCD(935, 1729) = 1               → KHÔNG có ngày chung
 <span class=kr>const</span> <span class=nx>gcdRaw</span> <span class=o>=</span> <span class=nx>measureFn</span><span class=p>(()</span> <span class=p>=&gt;</span> <span class=nx>gcd</span><span class=p>.</span><span class=nx>checkHasOverlap</span><span class=p>(</span><span class=nx>gcdFmt</span><span class=p>),</span> <span class=nx>s</span><span class=p>.</span><span class=nx>iters</span><span class=p>);</span>
 </code></pre></div><p>Không làm vậy, GC pause của scenario trước sẽ &ldquo;bleeding&rdquo; vào timing của scenario sau — cho ra số liệu không đáng tin.</p>
 <hr>
+<h2 id=phần-4b-script-test--cách-chạy-và-cấu-trúc>Phần 4b: Script Test — Cách Chạy Và Cấu Trúc</h2>
+<p>Toàn bộ benchmark được đặt trong thư mục <code>compare/</code> của project:</p>
+<pre tabindex=0><code>compare/
+├── bench.js              ← script benchmark chính (542 dòng)
+├── algos/
+│   ├── gcd-memory.js     ← faithful copy của production code (97 dòng)
+│   └── bitmask.js        ← port sang JS thuần của TS code mới (161 dòng)
+├── results/
+│   ├── latest.json       ← raw data JSON của lần chạy gần nhất
+│   └── latest.log        ← full output text
+└── README.md
+</code></pre><h3 id=chạy-benchmark>Chạy benchmark</h3>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=c1># Cơ bản — không có GC isolation</span>
+node compare/bench.js
+
+<span class=c1># Khuyến nghị — bật GC isolation để kết quả clean hơn</span>
+node --expose-gc compare/bench.js
+</code></pre></div><p>Kết quả tự động lưu vào <code>compare/results/latest.json</code> và <code>compare/results/latest.log</code>.</p>
+<h3 id=gcd-memoryjs--copy-trung-thành-của-production-code><code>gcd-memory.js</code> — Copy trung thành của production code</h3>
+<p>File này <strong>không sửa gì</strong> so với code gốc — copy nguyên si từ:</p>
+<ul>
+<li><code>services/util.js</code> → <code>CHECKSUM_DAYS_VALUES</code>, <code>calcChecksumForDaysArr</code>, <code>getDateListFromTo</code></li>
+<li><code>business/rate-season/RateSeasonManager.js</code> → <code>checkHasOverlap</code></li>
+</ul>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// File: compare/algos/gcd-memory.js
+</span><span class=c1></span>
+<span class=c1>// Primes cho 7 ngày trong tuần (1=Sun, 7=Sat)
+</span><span class=c1></span><span class=kr>const</span> <span class=nx>CHECKSUM_DAYS_VALUES</span> <span class=o>=</span> <span class=p>[</span><span class=mi>3</span><span class=p>,</span> <span class=mi>5</span><span class=p>,</span> <span class=mi>7</span><span class=p>,</span> <span class=mi>11</span><span class=p>,</span> <span class=mi>13</span><span class=p>,</span> <span class=mi>17</span><span class=p>,</span> <span class=mi>19</span><span class=p>];</span>
+
+<span class=kd>function</span> <span class=nx>calcChecksumForDaysArr</span><span class=p>(</span><span class=nx>dayArr</span> <span class=o>=</span> <span class=p>[])</span> <span class=p>{</span>
+  <span class=k>return</span> <span class=nx>dayArr</span><span class=p>.</span><span class=nx>reduce</span><span class=p>(</span>
+    <span class=p>(</span><span class=nx>result</span><span class=p>,</span> <span class=nx>current</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=nx>result</span> <span class=o>*</span> <span class=nx>CHECKSUM_DAYS_VALUES</span><span class=p>[</span><span class=nx>current</span> <span class=o>-</span> <span class=mi>1</span><span class=p>],</span> <span class=mi>1</span>
+  <span class=p>);</span>
+<span class=p>}</span>
+
+<span class=kd>function</span> <span class=nx>getDateListFromTo</span><span class=p>(</span><span class=nx>from</span><span class=p>,</span> <span class=nx>to</span><span class=p>,</span> <span class=nx>weekdays</span> <span class=o>=</span> <span class=p>[</span><span class=mi>1</span><span class=p>,</span><span class=mi>2</span><span class=p>,</span><span class=mi>3</span><span class=p>,</span><span class=mi>4</span><span class=p>,</span><span class=mi>5</span><span class=p>,</span><span class=mi>6</span><span class=p>,</span><span class=mi>7</span><span class=p>])</span> <span class=p>{</span>
+  <span class=c1>// ... iterate từng ngày, push vào string array nếu weekday match
+</span><span class=c1></span><span class=p>}</span>
+
+<span class=kd>function</span> <span class=nx>checkHasOverlap</span><span class=p>(</span><span class=nx>arrDateConfig</span> <span class=o>=</span> <span class=p>[])</span> <span class=p>{</span>
+  <span class=kd>let</span> <span class=nx>objCheck</span> <span class=o>=</span> <span class=p>{};</span>
+  <span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=nx>i</span> <span class=o>&lt;</span> <span class=nx>arrDateConfig</span><span class=p>.</span><span class=nx>length</span><span class=p>;</span> <span class=nx>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+    <span class=kd>let</span> <span class=nx>dates</span> <span class=o>=</span> <span class=nx>getDateListFromTo</span><span class=p>(</span>
+      <span class=nx>arrDateConfig</span><span class=p>[</span><span class=nx>i</span><span class=p>].</span><span class=nx>fromDate</span><span class=p>,</span>
+      <span class=nx>arrDateConfig</span><span class=p>[</span><span class=nx>i</span><span class=p>].</span><span class=nx>toDate</span><span class=p>,</span>
+      <span class=nx>arrDateConfig</span><span class=p>[</span><span class=nx>i</span><span class=p>].</span><span class=nx>weekdays</span>
+    <span class=p>);</span>
+    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>aDate</span> <span class=k>of</span> <span class=nx>dates</span><span class=p>)</span> <span class=p>{</span>
+      <span class=nx>objCheck</span><span class=p>[</span><span class=nx>aDate</span><span class=p>]</span> <span class=o>=</span> <span class=p>(</span><span class=nx>objCheck</span><span class=p>[</span><span class=nx>aDate</span><span class=p>]</span> <span class=o>||</span> <span class=mi>0</span><span class=p>)</span> <span class=o>+</span> <span class=mi>1</span><span class=p>;</span>
+    <span class=p>}</span>
+    <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>key</span> <span class=k>in</span> <span class=nx>objCheck</span><span class=p>)</span> <span class=p>{</span>
+      <span class=k>if</span> <span class=p>(</span><span class=nx>objCheck</span><span class=p>[</span><span class=nx>key</span><span class=p>]</span> <span class=o>&gt;</span> <span class=mi>1</span><span class=p>)</span>
+        <span class=k>return</span> <span class=p>[{</span> <span class=nx>message</span><span class=o>:</span> <span class=sb>`Has overlap on </span><span class=si>${</span><span class=nx>key</span><span class=si>}</span><span class=sb>`</span><span class=p>,</span> <span class=nx>item</span><span class=o>:</span> <span class=nx>arrDateConfig</span><span class=p>[</span><span class=nx>i</span><span class=p>]</span> <span class=p>}];</span>
+    <span class=p>}</span>
+  <span class=p>}</span>
+  <span class=k>return</span> <span class=kc>false</span><span class=p>;</span>
+<span class=p>}</span>
+</code></pre></div><h3 id=bitmaskjs--port-javascript-của-typescript-mới><code>bitmask.js</code> — Port JavaScript của TypeScript mới</h3>
+<p>File này là JS port của <code>src/common/helpers/overlap.helper.ts</code> từ NestJS project — giữ nguyên logic, chỉ bỏ TypeScript type annotations để chạy trong Node.js không cần compile:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// File: compare/algos/bitmask.js
+</span><span class=c1></span>
+<span class=kd>function</span> <span class=nx>weekdaysToBitmask</span><span class=p>(</span><span class=nx>weekdays</span><span class=p>)</span> <span class=p>{</span>
+  <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>weekdays</span> <span class=o>||</span> <span class=nx>weekdays</span><span class=p>.</span><span class=nx>length</span> <span class=o>===</span> <span class=mi>0</span><span class=p>)</span> <span class=k>return</span> <span class=mb>0b1111111</span><span class=p>;</span>
+  <span class=k>return</span> <span class=nx>weekdays</span><span class=p>.</span><span class=nx>reduce</span><span class=p>((</span><span class=nx>mask</span><span class=p>,</span> <span class=nx>day</span><span class=p>)</span> <span class=p>=&gt;</span> <span class=nx>mask</span> <span class=o>|</span> <span class=p>(</span><span class=mi>1</span> <span class=o>&lt;&lt;</span> <span class=p>(</span><span class=nx>day</span> <span class=o>-</span> <span class=mi>1</span><span class=p>)),</span> <span class=mi>0</span><span class=p>);</span>
+<span class=p>}</span>
+
+<span class=kd>function</span> <span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>dateStr</span><span class=p>)</span> <span class=p>{</span>
+  <span class=c1>// Howard Hinnant&#39;s proleptic Gregorian algorithm — thuần integer, không new Date()
+</span><span class=c1></span>  <span class=kr>const</span> <span class=p>[</span><span class=nx>y</span><span class=p>,</span> <span class=nx>m</span><span class=p>,</span> <span class=nx>d</span><span class=p>]</span> <span class=o>=</span> <span class=nx>dateStr</span><span class=p>.</span><span class=nx>split</span><span class=p>(</span><span class=s1>&#39;-&#39;</span><span class=p>).</span><span class=nx>map</span><span class=p>(</span><span class=nb>Number</span><span class=p>);</span>
+  <span class=kr>const</span> <span class=nx>era</span> <span class=o>=</span> <span class=nb>Math</span><span class=p>.</span><span class=nx>floor</span><span class=p>((</span><span class=nx>m</span> <span class=o>&lt;=</span> <span class=mi>2</span> <span class=o>?</span> <span class=nx>y</span> <span class=o>-</span> <span class=mi>1</span> <span class=o>:</span> <span class=nx>y</span><span class=p>)</span> <span class=o>/</span> <span class=mi>400</span><span class=p>);</span>
+  <span class=c1>// ...
+</span><span class=c1></span><span class=p>}</span>
+
+<span class=kd>function</span> <span class=nx>checkHasOverlap</span><span class=p>(</span><span class=nx>ranges</span><span class=p>)</span> <span class=p>{</span>
+  <span class=kr>const</span> <span class=nx>dateCount</span> <span class=o>=</span> <span class=k>new</span> <span class=nx>Map</span><span class=p>();</span>
+  <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>range</span> <span class=k>of</span> <span class=nx>ranges</span><span class=p>)</span> <span class=p>{</span>
+    <span class=kr>const</span> <span class=nx>mask</span> <span class=o>=</span> <span class=nx>weekdaysToBitmask</span><span class=p>(</span><span class=nx>range</span><span class=p>.</span><span class=nx>weekdays</span><span class=p>);</span>
+    <span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>d</span> <span class=o>=</span> <span class=nx>startEpoch</span><span class=p>;</span> <span class=nx>d</span> <span class=o>&lt;=</span> <span class=nx>endEpoch</span><span class=p>;</span> <span class=nx>d</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+      <span class=k>if</span> <span class=p>(</span><span class=nx>mask</span> <span class=o>&amp;</span> <span class=p>(</span><span class=mi>1</span> <span class=o>&lt;&lt;</span> <span class=nx>epochDayToDow</span><span class=p>(</span><span class=nx>d</span><span class=p>)))</span> <span class=p>{</span>
+        <span class=kr>const</span> <span class=nx>count</span> <span class=o>=</span> <span class=p>(</span><span class=nx>dateCount</span><span class=p>.</span><span class=nx>get</span><span class=p>(</span><span class=nx>d</span><span class=p>)</span> <span class=o>??</span> <span class=mi>0</span><span class=p>)</span> <span class=o>+</span> <span class=mi>1</span><span class=p>;</span>
+        <span class=k>if</span> <span class=p>(</span><span class=nx>count</span> <span class=o>&gt;</span> <span class=mi>1</span><span class=p>)</span> <span class=k>return</span> <span class=nx>fromEpochDay</span><span class=p>(</span><span class=nx>d</span><span class=p>);</span> <span class=c1>// early return
+</span><span class=c1></span>        <span class=nx>dateCount</span><span class=p>.</span><span class=nx>set</span><span class=p>(</span><span class=nx>d</span><span class=p>,</span> <span class=nx>count</span><span class=p>);</span>
+      <span class=p>}</span>
+    <span class=p>}</span>
+  <span class=p>}</span>
+  <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+<span class=p>}</span>
+
+<span class=kd>function</span> <span class=nx>checkTwoRangesOverlap</span><span class=p>(</span><span class=nx>a</span><span class=p>,</span> <span class=nx>b</span><span class=p>)</span> <span class=p>{</span>
+  <span class=c1>// Quick reject: date range không chồng
+</span><span class=c1></span>  <span class=k>if</span> <span class=p>(</span><span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>a</span><span class=p>.</span><span class=nx>endDate</span><span class=p>)</span> <span class=o>&lt;</span> <span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>b</span><span class=p>.</span><span class=nx>startDate</span><span class=p>))</span> <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+  <span class=k>if</span> <span class=p>(</span><span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>b</span><span class=p>.</span><span class=nx>endDate</span><span class=p>)</span> <span class=o>&lt;</span> <span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>a</span><span class=p>.</span><span class=nx>startDate</span><span class=p>))</span> <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+  <span class=c1>// Bitmask AND: weekday không chung
+</span><span class=c1></span>  <span class=kr>const</span> <span class=nx>combinedMask</span> <span class=o>=</span> <span class=nx>weekdaysToBitmask</span><span class=p>(</span><span class=nx>a</span><span class=p>.</span><span class=nx>weekdays</span><span class=p>)</span> <span class=o>&amp;</span> <span class=nx>weekdaysToBitmask</span><span class=p>(</span><span class=nx>b</span><span class=p>.</span><span class=nx>weekdays</span><span class=p>);</span>
+  <span class=k>if</span> <span class=p>(</span><span class=nx>combinedMask</span> <span class=o>===</span> <span class=mi>0</span><span class=p>)</span> <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+  <span class=c1>// Enumerate chỉ vùng giao
+</span><span class=c1></span>  <span class=c1>// ...
+</span><span class=c1></span><span class=p>}</span>
+</code></pre></div><h3 id=correctness-check-trong-benchjs>Correctness check trong bench.js</h3>
+<p>Trước khi đo bất kỳ metric nào, <code>bench.js</code> chạy một vòng correctness check — đảm bảo tất cả algorithms cho kết quả nhất quán nhau:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=c1>// bench.js — correctness verification
+</span><span class=c1></span><span class=kd>function</span> <span class=nx>runCorrectnessChecks</span><span class=p>()</span> <span class=p>{</span>
+  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;Running correctness checks...&#39;</span><span class=p>);</span>
+  <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>s</span> <span class=k>of</span> <span class=nx>SCENARIOS</span><span class=p>)</span> <span class=p>{</span>
+    <span class=kr>const</span> <span class=nx>gcdRanges</span>     <span class=o>=</span> <span class=nx>buildGcdRanges</span><span class=p>(</span><span class=nx>s</span><span class=p>);</span>
+    <span class=kr>const</span> <span class=nx>bitmaskRanges</span> <span class=o>=</span> <span class=nx>buildBitmaskRanges</span><span class=p>(</span><span class=nx>s</span><span class=p>);</span>
+
+    <span class=kr>const</span> <span class=nx>gcdResult</span>      <span class=o>=</span> <span class=nx>gcd</span><span class=p>.</span><span class=nx>checkHasOverlap</span><span class=p>(</span><span class=nx>gcdRanges</span><span class=p>);</span>
+    <span class=kr>const</span> <span class=nx>bitmaskResult</span>  <span class=o>=</span> <span class=nx>bitmask</span><span class=p>.</span><span class=nx>checkHasOverlap</span><span class=p>(</span><span class=nx>bitmaskRanges</span><span class=p>);</span>
+    <span class=kr>const</span> <span class=nx>twoResult</span>      <span class=o>=</span> <span class=nx>bitmask</span><span class=p>.</span><span class=nx>checkTwoRangesOverlap</span><span class=p>(</span>
+                             <span class=nx>bitmaskRanges</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span> <span class=nx>bitmaskRanges</span><span class=p>[</span><span class=mi>1</span><span class=p>]</span>
+                           <span class=p>);</span>
+
+    <span class=c1>// Tất cả phải đồng ý: có overlap hay không
+</span><span class=c1></span>    <span class=kr>const</span> <span class=nx>hasOverlapGcd</span>     <span class=o>=</span> <span class=o>!!</span><span class=nx>gcdResult</span><span class=p>;</span>
+    <span class=kr>const</span> <span class=nx>hasOverlapBitmask</span> <span class=o>=</span> <span class=nx>bitmaskResult</span> <span class=o>!==</span> <span class=kc>null</span><span class=p>;</span>
+
+    <span class=k>if</span> <span class=p>(</span><span class=nx>hasOverlapGcd</span> <span class=o>!==</span> <span class=nx>hasOverlapBitmask</span><span class=p>)</span> <span class=p>{</span>
+      <span class=nx>console</span><span class=p>.</span><span class=nx>error</span><span class=p>(</span><span class=sb>`[CORRECTNESS FAIL] </span><span class=si>${</span><span class=nx>s</span><span class=p>.</span><span class=nx>label</span><span class=si>}</span><span class=sb>: gcd=</span><span class=si>${</span><span class=nx>hasOverlapGcd</span><span class=si>}</span><span class=sb>, bitmask=</span><span class=si>${</span><span class=nx>hasOverlapBitmask</span><span class=si>}</span><span class=sb>`</span><span class=p>);</span>
+      <span class=nx>process</span><span class=p>.</span><span class=nx>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+    <span class=p>}</span>
+  <span class=p>}</span>
+  <span class=nx>console</span><span class=p>.</span><span class=nx>log</span><span class=p>(</span><span class=s1>&#39;All correctness checks passed.\n&#39;</span><span class=p>);</span>
+<span class=p>}</span>
+</code></pre></div><p>Kết quả lần chạy cuối cùng: <code>All correctness checks passed.</code> — tất cả 11 scenarios × 4 algorithms đồng ý với nhau 100%.</p>
+<hr>
 <h2 id=phần-5-kết-quả--số-biết-nói>Phần 5: Kết Quả — Số Biết Nói</h2>
-<h3 id=bảng-1-wall-time-ms-per-call>Bảng 1: Wall Time (ms per call)</h3>
-<pre tabindex=0><code>scenario              algo            iters    min(ms)    avg(ms)    p95(ms)    p99(ms)
-─────────────────────────────────────────────────────────────────────────────────────────
-tiny-nofilter         gcd-memory       2000     0.1484     0.1913     0.3056     0.7050
-tiny-nofilter         bitmask-multi    2000     0.0166     0.0211     0.0257     0.0512
-tiny-nofilter         bitmask-two      2000     0.0017     0.0028     0.0041     0.0078
+<blockquote>
+<p><strong>Giải thích các label trong bảng:</strong></p>
+<ul>
+<li><strong><code>gcd-memory</code></strong>: Sub-approach 2 của GCD — in-memory date enumeration với plain <code>{}</code> hashmap (code ở Phần 3 trên).</li>
+<li><strong><code>bitmask-multi</code></strong>: hàm <code>checkHasOverlap(ranges[])</code> của bitmask — nhận nhiều ranges, dùng <code>Map&lt;epochDay, count></code> để detect (chi tiết Phần 6).</li>
+<li><strong><code>bitmask-two</code></strong>: hàm <code>checkTwoRangesOverlap(a, b)</code> của bitmask — check đúng 2 ranges, có quick-reject O(1) bằng <code>maskA & maskB === 0</code> (chi tiết Phần 6).</li>
+<li><strong><code>uint8-prealloc</code></strong>: cải tiến của bitmask-multi, thay Map bằng Uint8Array pre-allocated (chi tiết Phần 7).</li>
+</ul>
+</blockquote>
+<h3 id=bảng-1-wall-time-ms-per-call--tất-cả-11-scenarios>Bảng 1: Wall Time (ms per call) — tất cả 11 scenarios</h3>
+<blockquote>
+<p>Dữ liệu từ benchmark chạy với <code>--expose-gc</code> (GC isolation). Tất cả correctness checks đã pass trước khi đo.</p>
+</blockquote>
+<pre tabindex=0><code>scenario              algo             iters    min(ms)    avg(ms)    p95(ms)    p99(ms)
+─────────────────────────────────────────────────────────────────────────────────────────────
+tiny-nofilter         gcd-memory        2000     0.0531     0.0687     0.1016     0.2258
+tiny-nofilter         bitmask-multi     2000     0.0059     0.0077     0.0083     0.0248
+tiny-nofilter         bitmask-two       2000     0.0006     0.0010     0.0017     0.0027
+tiny-nofilter         uint8-prealloc    2000     0.0080     0.0102     0.0105     0.0157
 
-small-nofilter        gcd-memory       1000     7.4663    14.6511    18.6183    20.0912
-small-nofilter        bitmask-multi    1000     0.1701     0.2265     0.3783     0.7346
-small-nofilter        bitmask-two      1000     0.0014     0.0029     0.0039     0.0143
+tiny-overlap          gcd-memory        2000     0.0504     0.0630     0.0802     0.2070
+tiny-overlap          bitmask-multi     2000     0.0058     0.0074     0.0076     0.0129
+tiny-overlap          bitmask-two       2000     0.0005     0.0007     0.0007     0.0021
+tiny-overlap          uint8-prealloc    2000     0.0084     0.0114     0.0151     0.0439
 
-medium-nofilter       gcd-memory        500    27.7974    55.7238    67.3801    74.4241
-medium-nofilter       bitmask-multi     500     0.3816     0.5527     1.0936     1.6323
-medium-nofilter       bitmask-two       500     0.0014     0.0018     0.0021     0.0035
+small-nofilter        gcd-memory        1000     4.3744     5.3316     6.6942     7.5352
+small-nofilter        bitmask-multi     1000     0.0609     0.0804     0.1255     0.2717
+small-nofilter        bitmask-two       1000     0.0005     0.0007     0.0007     0.0009
+small-nofilter        uint8-prealloc    1000     0.0431     0.0535     0.0582     0.1425
 
-large-nofilter        gcd-memory         50  1069.126  1723.039   1878.082   1924.654
-large-nofilter        bitmask-multi      50     4.307      6.154     10.415     14.215
-large-nofilter        bitmask-two        50     0.002      0.003      0.003      0.058
+small-overlap         gcd-memory        1000     4.3846     5.2116     6.3432     7.2243
+small-overlap         bitmask-multi     1000     0.0644     0.0816     0.1171     0.3144
+small-overlap         bitmask-two       1000     0.0005     0.0008     0.0016     0.0038
+small-overlap         uint8-prealloc    1000     0.0430     0.0549     0.0703     0.1222
 
-worst-case            gcd-memory         20   430.219    607.806    758.837    760.729
-worst-case            bitmask-multi      20     2.567      3.798      5.871      8.327
-worst-case            bitmask-two        20     0.001      0.004      0.003      0.049
-─────────────────────────────────────────────────────────────────────────────────────────
-</code></pre><h3 id=biểu-đồ-1-wall-time-avg--gcd-vs-bitmask-thang-log>Biểu đồ 1: Wall Time Avg — GCD vs Bitmask (thang log)</h3>
-<pre tabindex=0><code>Wall time avg (ms) — log scale, mỗi ký tự ≈ 1 bậc độ lớn
-(█ = gcd-memory  ░ = bitmask-multi  · = bitmask-two)
+medium-nofilter       gcd-memory         500    18.2387    20.4912    23.1606    25.2895
+medium-nofilter       bitmask-multi      500     0.1393     0.1837     0.2904     0.5048
+medium-nofilter       bitmask-two        500     0.0005     0.0006     0.0007     0.0008
+medium-nofilter       uint8-prealloc     500     0.0820     0.1087     0.1327     0.1863
 
-tiny        │ █  0.19ms
-(10×7d)     │ ░  0.021ms
-            │ ·  0.003ms
+medium-overlap        gcd-memory         500    18.1113    20.6619    23.0462    24.7042
+medium-overlap        bitmask-multi      500     0.1395     0.1790     0.2911     0.5104
+medium-overlap        bitmask-two        500     0.0005     0.0006     0.0007     0.0007
+medium-overlap        uint8-prealloc     500     0.0832     0.1099     0.1500     0.2845
 
-small       │ ████████████████  14.65ms
-(50×31d)    │ ░  0.23ms
-            │ ·  0.003ms
+medium-filtered       gcd-memory         500     7.2455     8.8718    10.5517    11.5796
+medium-filtered       bitmask-multi      500     0.0815     0.1047     0.1413     0.3068
+medium-filtered       bitmask-two        500     0.0005     0.0008     0.0007     0.0013
+medium-filtered       uint8-prealloc     500     0.0818     0.1085     0.1390     0.1823
 
-medium      │ ██████████████████████████████████████████████████████████  55.72ms
-(100×31d)   │ ░░  0.55ms
-            │ ·  0.002ms
+large-nofilter        gcd-memory          50   614.0863   640.6498   673.0568   694.9075
+large-nofilter        bitmask-multi       50     1.6479     2.1292     3.6472     4.0812
+large-nofilter        bitmask-two         50     0.0005     0.0008     0.0009     0.0133
+large-nofilter        uint8-prealloc      50     0.3335     0.4246     0.5418     0.8206
 
-large       │ ████████...████ (1723ms — cắt bớt)
-(300×90d)   │ ░░░░░░  6.15ms
-            │ ·  0.003ms
+large-filtered        gcd-memory          50   233.9158   248.8635   263.1342   285.5654
+large-filtered        bitmask-multi       50     0.7739     1.0038     1.5350     3.2730
+large-filtered        bitmask-two         50     0.0006     0.0008     0.0007     0.0114
+large-filtered        uint8-prealloc      50     0.2819     0.3566     0.4328     0.4564
 
-worst       │ ████████...████ (607ms — cắt bớt)
-(200×90d)   │ ░░░░  3.80ms
-            │ ·  0.004ms
-</code></pre><h3 id=biểu-đồ-2-speedup-ratio-gcd--bitmask-multi-wall-avg>Biểu đồ 2: Speedup Ratio (gcd / bitmask-multi, wall-avg)</h3>
-<pre tabindex=0><code>Speedup của bitmask-multi so với gcd-memory (lần nhanh hơn):
+worst-case            gcd-memory          20   261.9527   271.7717   288.2922   291.3957
+worst-case            bitmask-multi       20     1.4704     1.7779     3.8166     4.0018
+worst-case            bitmask-two         20     0.0005     0.0014     0.0016     0.0148
+worst-case            uint8-prealloc      20     0.2213     0.2623     0.3470     0.3487
 
-tiny-nofilter      │ ████████▌   9x
-tiny-overlap       │ ███████▌    7.7x
-small-nofilter     │ ████████████████████████████████████████████████████████████████  64.7x
-small-overlap      │ ████████████████████████████████████████████████████████████████████████████████████████  87.7x
-medium-nofilter    │ ██████████████████████████████████████████████████████████████████████████████████████████████████████  100.8x
-medium-overlap     │ ██████████████████████████████████████████████████████████████████████████████████████████████████████████████  118.8x
-medium-filtered    │ █████████████████████████████████████████████████████████████  65.3x
-large-nofilter     │ [280x — off chart]
-large-filtered     │ [143x — off chart]
-worst-case         │ [160x — off chart]
-worst-overlap      │ [149x — off chart]
+worst-overlap         gcd-memory          20   257.6225   270.5480   282.1005   283.3465
+worst-overlap         bitmask-multi       20     1.3632     1.7532     2.6039     3.8955
+worst-overlap         bitmask-two         20     0.0006     0.0016     0.0010     0.0208
+worst-overlap         uint8-prealloc      20     0.1939     0.3012     0.3995     0.4774
+─────────────────────────────────────────────────────────────────────────────────────────────
+</code></pre><h3 id=biểu-đồ-1-speedup--bitmask-multi-và-uint8-prealloc-so-với-gcd-memory>Biểu đồ 1: Speedup — bitmask-multi và uint8-prealloc so với gcd-memory</h3>
+<pre tabindex=0><code>Speedup  (gcd-memory wall-avg / algo wall-avg)
 
-Ghi chú: với weekday filter (medium-filtered), cả hai đều nhanh hơn
-nhưng bitmask vẫn thắng vì bitmask AND loại bỏ sớm hơn.
-</code></pre><h3 id=bảng-2-cpu-usage-avg-µs-per-call>Bảng 2: CPU Usage (avg µs per call)</h3>
-<pre tabindex=0><code>scenario              algo            cpu-user(µs)    cpu-sys(µs)
-──────────────────────────────────────────────────────────────────
-tiny-nofilter         gcd-memory           179              21
-tiny-nofilter         bitmask-multi         20              13
-tiny-nofilter         bitmask-two            5              10
+                        bitmask-multi    uint8-prealloc
+tiny-nofilter           8.9x             6.7x
+tiny-overlap            8.5x             5.5x
+small-nofilter         66.3x            99.7x
+small-overlap          63.9x            94.9x
+medium-nofilter       111.6x           188.5x
+medium-overlap        115.4x           187.9x
+medium-filtered        84.7x            81.8x
+large-nofilter        300.9x          1508.9x ← uint8 wins big here
+large-filtered        247.9x           697.9x
+worst-case            152.9x          1035.6x
+worst-overlap         154.3x           898.1x
 
-small-nofilter        gcd-memory         13,934              79
-small-nofilter        bitmask-multi         219              11
-small-nofilter        bitmask-two             7               8
+Ghi chú: bitmask-two không so ở đây vì nó check 2 ranges, không phải N ranges.
+</code></pre><h3 id=bảng-2-cpu-usage-avg-µs-per-call--tất-cả-11-scenarios>Bảng 2: CPU Usage (avg µs per call) — tất cả 11 scenarios</h3>
+<pre tabindex=0><code>scenario              algo             cpu-user(µs)    cpu-sys(µs)
+───────────────────────────────────────────────────────────────────────
+tiny-nofilter         gcd-memory                 64               7
+tiny-nofilter         bitmask-multi               9               2
+tiny-nofilter         bitmask-two                 3               2
+tiny-nofilter         uint8-prealloc             11               3
 
-medium-nofilter       gcd-memory         52,837             567
-medium-nofilter       bitmask-multi         492              51
-medium-nofilter       bitmask-two            11               3
+tiny-overlap          gcd-memory                 56               9
+tiny-overlap          bitmask-multi               8               3
+tiny-overlap          bitmask-two                 4               1
+tiny-overlap          uint8-prealloc             12               3
 
-large-nofilter        gcd-memory      1,582,938          75,323
-large-nofilter        bitmask-multi       4,265           1,764
-large-nofilter        bitmask-two            35               1
+small-nofilter        gcd-memory              5,070              38
+small-nofilter        bitmask-multi              79               3
+small-nofilter        bitmask-two                 3               1
+small-nofilter        uint8-prealloc             49               7
 
-worst-case            gcd-memory        575,866           7,966
-worst-case            bitmask-multi       2,608           1,081
-worst-case            bitmask-two            24               1
-──────────────────────────────────────────────────────────────────
-</code></pre><h3 id=biểu-đồ-3-cpu-user-time--tỉ-lệ-gcd--bitmask>Biểu đồ 3: CPU User Time — Tỉ lệ GCD / Bitmask</h3>
-<pre tabindex=0><code>CPU user time ratio (GCD / bitmask-multi):
+small-overlap         gcd-memory              4,944              46
+small-overlap         bitmask-multi              83               0
+small-overlap         bitmask-two                 3               2
+small-overlap         uint8-prealloc             54               3
 
-tiny        :   9x  ─────────
-small       :  64x  ────────────────────────────────────────────────────────────────
-medium      : 107x  ─────────────────────────────────────────────────── [off]
-large       : 371x  ─────────────────────────────────────────────────── [way off]
-worst       : 221x  ─────────────────────────────────────────────────── [way off]
+medium-nofilter       gcd-memory             19,429             207
+medium-nofilter       bitmask-multi             170              14
+medium-nofilter       bitmask-two                 3               2
+medium-nofilter       uint8-prealloc            101               7
 
-Điểm đáng chú ý: ở large-nofilter, GCD tốn 1,582,938 µs CPU/call — gần 1.6 giây
-thuần tính toán cho một lần validate. Bitmask chỉ tốn 4,265 µs — 371 lần ít hơn.
+medium-overlap        gcd-memory             19,637             167
+medium-overlap        bitmask-multi             175               0
+medium-overlap        bitmask-two                 4               0
+medium-overlap        uint8-prealloc            104               7
 
-CPU-sys của GCD cũng cao bất thường ở large (75,323 µs) — dấu hiệu
-allocator đang phải gọi kernel để xin thêm memory cho string array.
-</code></pre><h3 id=bảng-3-memory-pressure-avg-kb-delta-per-call>Bảng 3: Memory Pressure (avg KB delta per call)</h3>
-<pre tabindex=0><code>scenario              algo            heap-avg(KB)    rss-avg(KB)
-──────────────────────────────────────────────────────────────────
-tiny-nofilter         gcd-memory           0.8             0.1
-tiny-nofilter         bitmask-multi       -0.3             0.0   ← GC ran, heap shrunk
-tiny-nofilter         bitmask-two          0.5             0.0
+medium-filtered       gcd-memory              8,447              45
+medium-filtered       bitmask-multi              91              15
+medium-filtered       bitmask-two                 5               0
+medium-filtered       uint8-prealloc            103               7
 
-small-nofilter        gcd-memory           8.1             8.2
-small-nofilter        bitmask-multi        6.6             0.0
-small-nofilter        bitmask-two          0.4             0.0
+large-nofilter        gcd-memory            589,761          26,896
+large-nofilter        bitmask-multi           1,364             749  ← sys còn cao
+large-nofilter        bitmask-two                 4               0
+large-nofilter        uint8-prealloc            423               1  ← sys ≈ 0
 
-medium-nofilter       gcd-memory          19.3            14.8
-medium-nofilter       bitmask-multi       20.9             0.0
-medium-nofilter       bitmask-two          0.4             0.0
+large-filtered        gcd-memory            237,163           1,066
+large-filtered        bitmask-multi             620             381
+large-filtered        bitmask-two                 4               0
+large-filtered        uint8-prealloc            359               0  ← sys = 0
 
-large-nofilter        gcd-memory         449.9           442.9
-large-nofilter        bitmask-multi      605.2           407.9
-large-nofilter        bitmask-two          5.4             0.0
+worst-case            gcd-memory            257,455           4,039
+worst-case            bitmask-multi             866             909
+worst-case            bitmask-two                88               2
+worst-case            uint8-prealloc            293               0  ← sys = 0
 
-worst-case            gcd-memory        1314.4          1242.8
-worst-case            bitmask-multi     1148.3           797.6
-worst-case            bitmask-two          9.5             0.0
-──────────────────────────────────────────────────────────────────
-</code></pre><h3 id=biểu-đồ-4-heap-allocation-per-call>Biểu đồ 4: Heap Allocation per Call</h3>
-<pre tabindex=0><code>Heap delta trung bình mỗi call (KB):
-(█ = gcd-memory  ░ = bitmask-multi  · = bitmask-two)
+worst-overlap         gcd-memory            256,076           4,167
+worst-overlap         bitmask-multi           1,021             760
+worst-overlap         bitmask-two                 6               0
+worst-overlap         uint8-prealloc            324               4
+───────────────────────────────────────────────────────────────────────
+</code></pre><p><code>cpu-sys</code> là kernel calls — số này lên cao khi allocator phải xin thêm memory từ OS hoặc GC phải trả memory về. <code>uint8-prealloc</code> về <strong>0</strong> ở mọi large scenario vì một lần alloc duy nhất, không resize.</p>
+<h3 id=bảng-3-memory-pressure-avg-kb-delta-per-call--tất-cả-11-scenarios>Bảng 3: Memory Pressure (avg KB delta per call) — tất cả 11 scenarios</h3>
+<pre tabindex=0><code>scenario              algo             heap-avg(KB)    rss-avg(KB)
+──────────────────────────────────────────────────────────────────────
+tiny-nofilter         gcd-memory              0.8             0.0
+tiny-nofilter         bitmask-multi          -0.3             0.0   ← GC ran
+tiny-nofilter         bitmask-two             0.4             0.0
+tiny-nofilter         uint8-prealloc          0.6             0.1
 
-tiny        │ █  0.8 KB
-            │ ░  ~0 KB (GC ran)
-            │ ·  0.5 KB
+tiny-overlap          gcd-memory              0.2             0.0
+tiny-overlap          bitmask-multi           0.2             0.1
+tiny-overlap          bitmask-two             0.4             0.0
+tiny-overlap          uint8-prealloc          0.7             0.0
 
-small       │ ████████  8.1 KB
-            │ ██████▌  6.6 KB
-            │ ·  0.4 KB
+small-nofilter        gcd-memory              4.1             8.2
+small-nofilter        bitmask-multi           6.6             0.0
+small-nofilter        bitmask-two             0.4             0.0
+small-nofilter        uint8-prealloc          5.8             0.0
 
-medium      │ ███████████████████  19.3 KB
-            │ █████████████████████  20.9 KB   ← bitmask gần bằng ở đây vì Map overhead
-            │ ·  0.4 KB
+small-overlap         gcd-memory             15.4            15.9
+small-overlap         bitmask-multi           6.7             0.0
+small-overlap         bitmask-two             0.4             0.0
+small-overlap         uint8-prealloc          5.8             0.5
 
-large       │ ████████...███████████████████████████████████████  449.9 KB
-            │ ████████...████████████████████████████████████████████  605.2 KB
-            │ ·  5.4 KB   ← bitmask-two cực kỳ nhẹ
+medium-nofilter       gcd-memory             19.2            14.9
+medium-nofilter       bitmask-multi          20.9            -0.8   ← GC ran
+medium-nofilter       bitmask-two             0.4             0.0
+medium-nofilter       uint8-prealloc         11.0             0.0
 
-worst       │ ████████...██████████████████████████████████████████████████  1314.4 KB
-            │ ████████...████████████████████████████████████████████████  1148.3 KB
-            │ ··  9.5 KB
+medium-overlap        gcd-memory             19.2            14.6
+medium-overlap        bitmask-multi          20.9             0.0
+medium-overlap        bitmask-two             0.4             0.0
+medium-overlap        uint8-prealloc         11.1             0.0
+
+medium-filtered       gcd-memory             20.0             0.0
+medium-filtered       bitmask-multi           6.6             0.0
+medium-filtered       bitmask-two             0.4             0.3
+medium-filtered       uint8-prealloc         11.2             0.0
+
+large-nofilter        gcd-memory            450.1           443.5
+large-nofilter        bitmask-multi         605.2           411.7
+large-nofilter        bitmask-two             5.4             0.0
+large-nofilter        uint8-prealloc        134.1             5.1   ← 4.5x nhẹ hơn
+
+large-filtered        gcd-memory            345.5           271.1
+large-filtered        bitmask-multi          80.9            32.3
+large-filtered        bitmask-two             1.4             0.0
+large-filtered        uint8-prealloc        130.1             0.0
+
+worst-case            gcd-memory          1,312.7         1,263.8
+worst-case            bitmask-multi       1,139.7          -448.4   ← GC ran
+worst-case            bitmask-two             0.8           -45.2
+worst-case            uint8-prealloc         86.6             0.0   ← 13.2x nhẹ hơn
+
+worst-overlap         gcd-memory          1,319.3         1,242.8
+worst-overlap         bitmask-multi       1,139.4           700.0
+worst-overlap         bitmask-two             0.5             0.0
+worst-overlap         uint8-prealloc         86.4             0.0   ← 13.2x nhẹ hơn
+──────────────────────────────────────────────────────────────────────
 </code></pre><p><strong>Nhận xét quan trọng về memory:</strong></p>
 <ul>
-<li>Ở scale nhỏ và trung bình: GCD và bitmask-multi có heap delta tương đương — cả hai đều phải enumerate ngày.</li>
-<li>Ở scale lớn: cả hai đều tốn nhiều memory vì dataset lớn. Bitmask-multi thậm chí còn tốn hơn ở <code>large-nofilter</code> (605 vs 449 KB) vì <code>Map&lt;number, number></code> có overhead lớn hơn plain object <code>{}</code> trong V8.</li>
-<li><strong>Winner thực sự: <code>bitmask-two</code></strong> — hàm check 2 ranges với quick-reject bitmask AND. Chỉ 5-9 KB/call ngay cả ở worst-case, vì khi <code>maskA & maskB === 0</code> nó return ngay mà không allocate gì cả.</li>
+<li>Scale nhỏ (tiny/small): tất cả đều nhẹ, khác biệt không đáng kể.</li>
+<li>Scale trung bình: <code>uint8-prealloc</code> (11 KB) bắt đầu nhẹ hơn <code>bitmask-multi</code> (20 KB) — do không dùng Map.</li>
+<li>Scale lớn (<code>large-nofilter</code>): bitmask-multi (605 KB) nặng <strong>hơn</strong> cả gcd-memory (450 KB). Đây là điều bất ngờ: Map overhead lớn hơn cả plain JS object <code>{}</code> của GCD.</li>
+<li><code>uint8-prealloc</code> luôn nhẹ nhất ở large/worst-case (134 KB và 86 KB).</li>
+<li><strong><code>bitmask-two</code></strong> vô địch về memory mọi scenario (0.4-5.4 KB) — vì khi <code>maskA & maskB === 0</code> nó return ngay không allocate gì.</li>
 </ul>
+<h3 id=nhưng-tên-bitmask-multi-có-phần-gây-hiểu-lầm>Nhưng Tên <code>bitmask-multi</code> Có Phần Gây Hiểu Lầm</h3>
+<p>Nhìn kỹ lại code của <code>bitmask-multi</code>, có một điều đáng chú ý:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=kd>function</span> <span class=nx>checkHasOverlap</span><span class=p>(</span><span class=nx>ranges</span><span class=p>)</span> <span class=p>{</span>
+  <span class=kr>const</span> <span class=nx>dateCount</span> <span class=o>=</span> <span class=k>new</span> <span class=nx>Map</span><span class=p>();</span>           <span class=c1>// ← đây là Map, không phải bitmask
+</span><span class=c1></span>
+  <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>range</span> <span class=k>of</span> <span class=nx>ranges</span><span class=p>)</span> <span class=p>{</span>
+    <span class=kr>const</span> <span class=nx>mask</span> <span class=o>=</span> <span class=nx>weekdaysToBitmask</span><span class=p>(</span><span class=nx>range</span><span class=p>.</span><span class=nx>weekdays</span><span class=p>);</span> <span class=c1>// ← bitmask dùng ở đây
+</span><span class=c1></span>    <span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>d</span> <span class=o>=</span> <span class=nx>startEpoch</span><span class=p>;</span> <span class=nx>d</span> <span class=o>&lt;=</span> <span class=nx>endEpoch</span><span class=p>;</span> <span class=nx>d</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+      <span class=k>if</span> <span class=p>(</span><span class=nx>mask</span> <span class=o>&amp;</span> <span class=p>(</span><span class=mi>1</span> <span class=o>&lt;&lt;</span> <span class=nx>epochDayToDow</span><span class=p>(</span><span class=nx>d</span><span class=p>)))</span> <span class=p>{</span>          <span class=c1>// ← filter ngày bằng bitmask
+</span><span class=c1></span>        <span class=kr>const</span> <span class=nx>count</span> <span class=o>=</span> <span class=p>(</span><span class=nx>dateCount</span><span class=p>.</span><span class=nx>get</span><span class=p>(</span><span class=nx>d</span><span class=p>)</span> <span class=o>??</span> <span class=mi>0</span><span class=p>)</span> <span class=o>+</span> <span class=mi>1</span><span class=p>;</span>
+        <span class=k>if</span> <span class=p>(</span><span class=nx>count</span> <span class=o>&gt;</span> <span class=mi>1</span><span class=p>)</span> <span class=k>return</span> <span class=nx>fromEpochDay</span><span class=p>(</span><span class=nx>d</span><span class=p>);</span>
+        <span class=nx>dateCount</span><span class=p>.</span><span class=nx>set</span><span class=p>(</span><span class=nx>d</span><span class=p>,</span> <span class=nx>count</span><span class=p>);</span>                     <span class=c1>// ← nhưng detect overlap bằng Map
+</span><span class=c1></span>      <span class=p>}</span>
+    <span class=p>}</span>
+  <span class=p>}</span>
+  <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+<span class=p>}</span>
+</code></pre></div><p>Bitmask ở đây chỉ làm nhiệm vụ <em>filter ngày trong khi enumerate</em> — quyết định ngày nào cần đếm. Việc <em>detect overlap</em> thực sự vẫn do <code>Map&lt;epochDay, count></code> đảm nhận. Tên chính xác hơn phải là <code>epoch-hashmap</code> — dùng epoch day integer thay vì date string làm key, giúp hash nhanh hơn, nhưng bản chất vẫn là hashmap.</p>
+<p>Điều này cũng giải thích tại sao bitmask-multi có memory tương đương hoặc cao hơn GCD ở scale lớn (605 KB vs 449 KB tại <code>large-nofilter</code>) — không phải lỗi của bitmask, mà là chi phí của Map.</p>
+<p><strong>V8 Map đắt hơn vẻ ngoài:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Entry count</th>
+<th>V8 làm gì</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1-8   </td>
+<td>Allocate bucket 8 slot đầu tiên</td>
+</tr>
+<tr>
+<td>9     </td>
+<td>Resize → 16 slot, copy toàn bộ + rehash</td>
+</tr>
+<tr>
+<td>17   </td>
+<td>Resize → 32 slot, lại copy + rehash</td>
+</tr>
+<tr>
+<td>&mldr;   </td>
+<td>Cứ x2 khi đầy 75% capacity</td>
+</tr>
+<tr>
+<td>~27.000 entries (300×90 ngày)</td>
+<td>Đã qua khoảng 12 lần resize</td>
+</tr>
+</tbody>
+</table>
+<p>Mỗi lần resize: allocate array mới, copy toàn bộ, free array cũ → GC phải dọn. Thêm nữa, Map dùng pointer-based hash table nên access không tuần tự trên memory → cache miss nhiều. Đây là lý do <code>cpu-sys</code> của bitmask-multi không về 0 ở scale lớn, và là lý do phân tích ở Phần 7 tiếp theo.</p>
 <hr>
 <h2 id=phần-6-giải-pháp-mới--bitmask-7-bit-đơn-giản-mà-hiệu-quả>Phần 6: Giải Pháp Mới — Bitmask 7-bit Đơn Giản Mà Hiệu Quả</h2>
 <p>Phiên bản mới của hệ thống (viết lại bằng TypeScript, NestJS) giải quyết bài toán weekday overlap bằng bitmask — đơn giản hơn nhiều, và không phụ thuộc gì vào DB custom function.</p>
@@ -418,14 +670,30 @@ worst       │ ████████...███████████
 <div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=kd>function</span> <span class=nx>weekdaysToBitmask</span><span class=p>(</span><span class=nx>weekdays</span>: <span class=kt>number</span><span class=p>[]</span> <span class=o>|</span> <span class=kc>null</span> <span class=o>|</span> <span class=kc>undefined</span><span class=p>)</span><span class=o>:</span> <span class=kt>number</span> <span class=p>{</span>
   <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nx>weekdays</span> <span class=o>||</span> <span class=nx>weekdays</span><span class=p>.</span><span class=nx>length</span> <span class=o>===</span> <span class=mi>0</span><span class=p>)</span> <span class=k>return</span> <span class=mi>0</span><span class=nx>b1111111</span><span class=p>;</span> <span class=c1>// tất cả ngày = 127
 </span><span class=c1></span>  <span class=c1>// weekday 1=Sun → bit0, weekday 7=Sat → bit6
+</span><span class=c1></span>  <span class=c1>// day=1 → (1-1)=0 → 1&lt;&lt;0 = 0b0000001 (bit vị trí 0)
+</span><span class=c1></span>  <span class=c1>// day=7 → (7-1)=6 → 1&lt;&lt;6 = 0b1000000 (bit vị trí 6)
 </span><span class=c1></span>  <span class=k>return</span> <span class=nx>weekdays</span><span class=p>.</span><span class=nx>reduce</span><span class=p>((</span><span class=nx>mask</span><span class=p>,</span> <span class=nx>day</span><span class=p>)</span> <span class=o>=&gt;</span> <span class=nx>mask</span> <span class=o>|</span> <span class=p>(</span><span class=mi>1</span> <span class=o>&lt;&lt;</span> <span class=p>(</span><span class=nx>day</span> <span class=o>-</span> <span class=mi>1</span><span class=p>)),</span> <span class=mi>0</span><span class=p>);</span>
 <span class=p>}</span>
 
-<span class=c1>// Ví dụ:
-</span><span class=c1>// weekdaysToBitmask([2, 4, 6])  → 0b0101010 = 42
+<span class=c1>// Layout 7 bit (bit6=Sat, bit5=Fri, ..., bit0=Sun):
+</span><span class=c1>//   bit6  bit5  bit4  bit3  bit2  bit1  bit0
+</span><span class=c1>//    Sat   Fri   Thu   Wed   Tue   Mon   Sun
+</span><span class=c1>//
+</span><span class=c1>// weekdaysToBitmask([1, 7]) = bit0 | bit6 = 0b1000001 = 65  (Sun + Sat)
+</span><span class=c1>// weekdaysToBitmask([2,3,4]) = bit1|bit2|bit3 = 0b0001110 = 14  (Mon-Wed)
 </span><span class=c1>// weekdaysToBitmask([1, 7])     → 0b1000001 = 65  (Sun + Sat)
 </span><span class=c1>// weekdaysToBitmask(null)       → 0b1111111 = 127 (mọi ngày)
 </span></code></pre></div><h3 id=code--date-arithmetic-không-dùng-moment>Code — Date arithmetic không dùng moment</h3>
+<p>Trước khi xem code, cần hiểu khái niệm <strong>epoch day</strong> — xuyên suốt toàn bộ implementation bitmask:</p>
+<blockquote>
+<p><strong>Epoch day</strong> = số nguyên đếm số ngày kể từ 1970-01-01 (UTC). Ví dụ: <code>2024-01-01 = 19723</code>, <code>2024-01-02 = 19724</code>.
+Thay vì làm việc với string <code>"2024-01-15"</code>, chúng ta convert một lần sang integer rồi làm toán thuần integer:</p>
+<ul>
+<li>&ldquo;Ngày kế tiếp&rdquo; = <code>d + 1</code> (không cần parse)</li>
+<li>&ldquo;Cách nhau bao ngày&rdquo; = <code>e - s</code> (phép trừ đơn giản)</li>
+<li>Dùng làm key của Map/array: integer hash nhanh hơn string hash nhiều lần</li>
+</ul>
+</blockquote>
 <p>Thay vì dùng <code>moment</code> (floating point, timezone mess), dùng <strong>Howard Hinnant&rsquo;s proleptic Gregorian algorithm</strong> — thuần integer:</p>
 <div class=highlight><pre tabindex=0 class=chroma><code class=language-typescript data-lang=typescript><span class=kd>function</span> <span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>dateStr</span>: <span class=kt>string</span><span class=p>)</span><span class=o>:</span> <span class=kt>number</span> <span class=p>{</span>
   <span class=kr>const</span> <span class=p>[</span><span class=nx>y</span><span class=p>,</span> <span class=nx>m</span><span class=p>,</span> <span class=nx>d</span><span class=p>]</span> <span class=o>=</span> <span class=nx>dateStr</span><span class=p>.</span><span class=nx>split</span><span class=p>(</span><span class=s1>&#39;-&#39;</span><span class=p>).</span><span class=nx>map</span><span class=p>(</span><span class=nb>Number</span><span class=p>);</span>
@@ -466,16 +734,16 @@ worst       │ ████████...███████████
   <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
 <span class=p>}</span>
 </code></pre></div><p>Với logic <code>maskA & maskB</code>:</p>
-<div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>weekdays <span class=nv>A</span> <span class=o>=</span> <span class=o>[</span>2, 4, 6<span class=o>]</span>  → <span class=nv>maskA</span> <span class=o>=</span> <span class=nv>0b0101010</span> <span class=o>=</span> <span class=m>42</span>
-weekdays <span class=nv>B</span> <span class=o>=</span> <span class=o>[</span>4, 5, 6<span class=o>]</span>  → <span class=nv>maskB</span> <span class=o>=</span> <span class=nv>0b1011000</span> <span class=o>=</span> <span class=m>88</span>
-maskA <span class=p>&amp;</span> <span class=nv>maskB</span>           <span class=o>=</span> <span class=nv>0b0001000</span> <span class=o>=</span> 8  ← <span class=nv>bit3</span> <span class=o>=</span> thứ <span class=m>4</span>
+<pre tabindex=0><code>weekdays A = [2, 4, 6]  → maskA = 0b0101010 = 42
+weekdays B = [4, 5, 6]  → maskB = 0b1011000 = 88
+maskA &amp; maskB           = 0b0001000 = 8  ← bit3 = thứ 4
 → có ngày chung, enumerate để tìm ngày đầu tiên
 
-weekdays <span class=nv>A</span> <span class=o>=</span> <span class=o>[</span>2, 4, 6<span class=o>]</span>  → <span class=nv>maskA</span> <span class=o>=</span> <span class=nv>0b0101010</span> <span class=o>=</span> <span class=m>42</span>
-weekdays <span class=nv>C</span> <span class=o>=</span> <span class=o>[</span>3, 5, 7<span class=o>]</span>  → <span class=nv>maskC</span> <span class=o>=</span> <span class=nv>0b1010100</span> <span class=o>=</span> <span class=m>84</span>
-maskA <span class=p>&amp;</span> <span class=nv>maskC</span>           <span class=o>=</span> <span class=nv>0b0000000</span> <span class=o>=</span> <span class=m>0</span>
-→ không có ngày chung → <span class=k>return</span> null ngay, không enumerate gì cả
-</code></pre></div><hr>
+weekdays A = [2, 4, 6]  → maskA = 0b0101010 = 42
+weekdays C = [3, 5, 7]  → maskC = 0b1010100 = 84
+maskA &amp; maskC           = 0b0000000 = 0
+→ không có ngày chung → return null ngay, không enumerate gì cả
+</code></pre><hr>
 <h3 id=ưu-điểm-của-approach-bitmask>Ưu điểm của approach Bitmask</h3>
 <p><strong>1. Đơn giản và đọc được ngay</strong></p>
 <p><code>maskA & maskB === 0</code> → &ldquo;hai tập weekday này không có phần tử chung&rdquo; — ai cũng hiểu, kể cả người mới.</p>
@@ -501,7 +769,150 @@ maskA <span class=p>&amp;</span> <span class=nv>maskC</span>           <sp
 <p><strong>3. <code>bitmask-multi</code> vs GCD ở scale lớn — heap gần tương đương</strong></p>
 <p>Bảng memory cho thấy ở <code>large-nofilter</code>, bitmask-multi thậm chí còn tốn heap nhiều hơn GCD (605 vs 449 KB) vì <code>Map&lt;number, number></code> có overhead lớn hơn plain <code>{}</code>. Winner thực sự về memory là <code>bitmask-two</code> — nhưng nó chỉ check 2 ranges tại một thời điểm.</p>
 <hr>
-<h2 id=phần-7-kiến-thức-đại-học-ứng-dụng--hồi-đó-tôi-tưởng-chỉ-để-thi-rớt-cho-vui>Phần 7: Kiến Thức Đại Học Ứng Dụng — Hồi Đó Tôi Tưởng Chỉ Để Thi Rớt Cho Vui</h2>
+<h2 id=phần-7-giải-pháp-thứ-ba--uint8array-pre-allocated>Phần 7: Giải Pháp Thứ Ba — Uint8Array Pre-allocated</h2>
+<p>Sau khi phân tích ở trên, vấn đề rõ ràng: cả GCD in-memory lẫn bitmask-multi đều có một kẻ thù giống nhau ở scale lớn — chi phí của dynamic hashmap. GCD dùng plain <code>{}</code> object, bitmask-multi dùng <code>Map</code>, nhưng cả hai đều phải grow dynamically theo số lượng entry.</p>
+<p>Câu hỏi đặt ra: chúng ta có thể biết trước kích thước cần thiết không?</p>
+<p>Câu trả lời là: <strong>có</strong>. Vì tất cả ranges đã được biết trước (đây là batch validation, không phải streaming), chúng ta có thể quét qua một lần để tìm <code>minEpoch</code> và <code>maxEpoch</code>, rồi allocate một array có kích thước chính xác trước khi bắt đầu đếm.</p>
+<h3 id=ý-tưởng-cốt-lõi>Ý Tưởng Cốt Lõi</h3>
+<p>Thay vì <code>Map&lt;epochDay, count></code> — phải hash, phải resize, cache miss tùy tiện — dùng <code>Uint8Array</code> được index bởi <code>(epochDay - minEpoch)</code>:</p>
+<pre tabindex=0><code>epochDay → index = epochDay - minEpoch
+counter[index]++ thay vì dateCount.set(d, count)
+</code></pre><p>Truy cập mảng trực tiếp: <code>base_addr + offset * 1 byte</code> — một phép cộng nguyên. Không hash, không probe, không resize.</p>
+<h3 id=thuật-toán-hai-lần-duyệt>Thuật Toán Hai Lần Duyệt</h3>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-javascript data-lang=javascript><span class=kd>function</span> <span class=nx>checkHasOverlapPrealloc</span><span class=p>(</span><span class=nx>ranges</span><span class=p>)</span> <span class=p>{</span>
+  <span class=k>if</span> <span class=p>(</span><span class=nx>ranges</span><span class=p>.</span><span class=nx>length</span> <span class=o>===</span> <span class=mi>0</span><span class=p>)</span> <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+
+  <span class=c1>// Pass 1: tìm epoch day bounds — chỉ so sánh integer, không alloc gì
+</span><span class=c1></span>  <span class=kd>let</span> <span class=nx>minEpoch</span> <span class=o>=</span> <span class=kc>Infinity</span><span class=p>,</span> <span class=nx>maxEpoch</span> <span class=o>=</span> <span class=o>-</span><span class=kc>Infinity</span><span class=p>;</span>
+  <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>r</span> <span class=k>of</span> <span class=nx>ranges</span><span class=p>)</span> <span class=p>{</span>
+    <span class=kr>const</span> <span class=nx>s</span> <span class=o>=</span> <span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>r</span><span class=p>.</span><span class=nx>startDate</span><span class=p>);</span>
+    <span class=kr>const</span> <span class=nx>e</span> <span class=o>=</span> <span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>r</span><span class=p>.</span><span class=nx>endDate</span><span class=p>);</span>
+    <span class=k>if</span> <span class=p>(</span><span class=nx>s</span> <span class=o>&lt;</span> <span class=nx>minEpoch</span><span class=p>)</span> <span class=nx>minEpoch</span> <span class=o>=</span> <span class=nx>s</span><span class=p>;</span>
+    <span class=k>if</span> <span class=p>(</span><span class=nx>e</span> <span class=o>&gt;</span> <span class=nx>maxEpoch</span><span class=p>)</span> <span class=nx>maxEpoch</span> <span class=o>=</span> <span class=nx>e</span><span class=p>;</span>
+  <span class=p>}</span>
+
+  <span class=c1>// Một lần allocate duy nhất — kích thước chính xác, zero-initialized theo spec
+</span><span class=c1></span>  <span class=c1>// Uint8Array: 1 byte/entry, không có object header, không có hash bucket
+</span><span class=c1></span>  <span class=kr>const</span> <span class=nx>counter</span> <span class=o>=</span> <span class=k>new</span> <span class=nx>Uint8Array</span><span class=p>(</span><span class=nx>maxEpoch</span> <span class=o>-</span> <span class=nx>minEpoch</span> <span class=o>+</span> <span class=mi>1</span><span class=p>);</span>
+
+  <span class=c1>// Pass 2: y hệt bitmask-multi, nhưng direct index thay vì Map.get/set
+</span><span class=c1></span>  <span class=k>for</span> <span class=p>(</span><span class=kr>const</span> <span class=nx>range</span> <span class=k>of</span> <span class=nx>ranges</span><span class=p>)</span> <span class=p>{</span>
+    <span class=kr>const</span> <span class=nx>s</span>    <span class=o>=</span> <span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>range</span><span class=p>.</span><span class=nx>startDate</span><span class=p>);</span>
+    <span class=kr>const</span> <span class=nx>e</span>    <span class=o>=</span> <span class=nx>toEpochDay</span><span class=p>(</span><span class=nx>range</span><span class=p>.</span><span class=nx>endDate</span><span class=p>);</span>
+    <span class=kr>const</span> <span class=nx>mask</span> <span class=o>=</span> <span class=nx>weekdaysToBitmask</span><span class=p>(</span><span class=nx>range</span><span class=p>.</span><span class=nx>weekdays</span><span class=p>);</span>
+    <span class=k>for</span> <span class=p>(</span><span class=kd>let</span> <span class=nx>d</span> <span class=o>=</span> <span class=nx>s</span><span class=p>;</span> <span class=nx>d</span> <span class=o>&lt;=</span> <span class=nx>e</span><span class=p>;</span> <span class=nx>d</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+      <span class=k>if</span> <span class=p>(</span><span class=nx>mask</span> <span class=o>&amp;</span> <span class=p>(</span><span class=mi>1</span> <span class=o>&lt;&lt;</span> <span class=nx>epochDayToDow</span><span class=p>(</span><span class=nx>d</span><span class=p>)))</span> <span class=p>{</span>
+        <span class=k>if</span> <span class=p>(</span><span class=o>++</span><span class=nx>counter</span><span class=p>[</span><span class=nx>d</span> <span class=o>-</span> <span class=nx>minEpoch</span><span class=p>]</span> <span class=o>&gt;</span> <span class=mi>1</span><span class=p>)</span> <span class=k>return</span> <span class=nx>fromEpochDay</span><span class=p>(</span><span class=nx>d</span><span class=p>);</span> <span class=c1>// early exit
+</span><span class=c1></span>      <span class=p>}</span>
+    <span class=p>}</span>
+  <span class=p>}</span>
+  <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+<span class=p>}</span>
+</code></pre></div><p>Chi phí Pass 1 rất nhỏ: chỉ duyệt qua <code>ranges.length</code> lần (không phải ngày), không alloc gì. Chi phí phụ thêm so với bitmask-multi: chỉ là một lần duyệt O(n ranges) và một <code>new Uint8Array(span)</code>.</p>
+<h3 id=benchmark-đầy-đủ--4-thuật-toán>Benchmark Đầy Đủ — 4 Thuật Toán</h3>
+<blockquote>
+<p>Dữ liệu dưới đây là từ <strong>cùng một lần chạy benchmark</strong> với Phần 5 — <code>--expose-gc</code>, tất cả correctness checks pass. Phần 5 hiển thị đầy đủ 11 scenarios; bảng dưới đây tập trung vào 5 scenarios đại diện nhất để so sánh dễ nhìn hơn.</p>
+</blockquote>
+<p>Dưới đây là kết quả từ lần chạy benchmark (với GC isolation <code>--expose-gc</code>):</p>
+<p><strong>Wall Time (ms per call):</strong></p>
+<pre tabindex=0><code>scenario              algo               iters    min(ms)    avg(ms)    p95(ms)    p99(ms)
+────────────────────────────────────────────────────────────────────────────────────────────
+tiny-nofilter         gcd-memory          2000     0.0531     0.0687     0.1016     0.2258
+tiny-nofilter         bitmask-multi       2000     0.0059     0.0077     0.0083     0.0248
+tiny-nofilter         uint8-prealloc      2000     0.0080     0.0102     0.0105     0.0157
+tiny-nofilter         bitmask-two         2000     0.0006     0.0010     0.0017     0.0027
+
+small-nofilter        gcd-memory          1000     4.3744     5.3316     6.6942     7.5352
+small-nofilter        bitmask-multi       1000     0.0609     0.0804     0.1255     0.2717
+small-nofilter        uint8-prealloc      1000     0.0431     0.0535     0.0582     0.1425
+small-nofilter        bitmask-two         1000     0.0005     0.0007     0.0007     0.0009
+
+medium-nofilter       gcd-memory           500    18.2387    20.4912    23.1606    25.2895
+medium-nofilter       bitmask-multi        500     0.1393     0.1837     0.2904     0.5048
+medium-nofilter       uint8-prealloc       500     0.0820     0.1087     0.1327     0.1863
+medium-nofilter       bitmask-two          500     0.0005     0.0006     0.0007     0.0008
+
+large-nofilter        gcd-memory            50   614.0863   640.6498   673.0568   694.9075
+large-nofilter        bitmask-multi         50     1.6479     2.1292     3.6472     4.0812
+large-nofilter        uint8-prealloc        50     0.3335     0.4246     0.5418     0.8206
+large-nofilter        bitmask-two           50     0.0005     0.0008     0.0009     0.0133
+
+worst-case            gcd-memory            20   261.9527   271.7717   288.2922   291.3957
+worst-case            bitmask-multi         20     1.4704     1.7779     3.8166     4.0018
+worst-case            uint8-prealloc        20     0.2213     0.2623     0.3470     0.3487
+worst-case            bitmask-two           20     0.0005     0.0014     0.0016     0.0148
+────────────────────────────────────────────────────────────────────────────────────────────
+</code></pre><p><strong>CPU User Time (avg µs per call):</strong></p>
+<pre tabindex=0><code>scenario              algo               cpu-user(µs)    cpu-sys(µs)
+────────────────────────────────────────────────────────────────────
+tiny-nofilter         gcd-memory                  64               7
+tiny-nofilter         bitmask-multi                9               2
+tiny-nofilter         uint8-prealloc              11               3
+
+small-nofilter        gcd-memory               5,070              38
+small-nofilter        bitmask-multi               79               3
+small-nofilter        uint8-prealloc              49               7   ← cpu-sys ≈ 0
+
+medium-nofilter       gcd-memory              19,429             207
+medium-nofilter       bitmask-multi              170              14
+medium-nofilter       uint8-prealloc             101               7
+
+large-nofilter        gcd-memory             589,761          26,896
+large-nofilter        bitmask-multi            1,364             749   ← sys còn cao
+large-nofilter        uint8-prealloc             423               1   ← sys ≈ 0
+
+worst-case            gcd-memory             257,455           4,039
+worst-case            bitmask-multi              866             909
+worst-case            uint8-prealloc             293               0   ← sys = 0
+────────────────────────────────────────────────────────────────────
+</code></pre><p>Dấu hiệu rõ ràng nhất: <code>cpu-sys</code> của uint8-prealloc về <strong>0</strong> ở mọi scenario lớn. Không còn syscall nào từ allocator — vì không còn lần resize nào nữa.</p>
+<p><strong>Memory (avg heap delta per call):</strong></p>
+<pre tabindex=0><code>scenario              algo               heap-avg(KB)    rss-avg(KB)
+────────────────────────────────────────────────────────────────────
+medium-nofilter       gcd-memory                19.2            14.9
+medium-nofilter       bitmask-multi             20.9            -0.8   ← GC ran
+medium-nofilter       uint8-prealloc            11.0             0.0   ← 1.9x nhẹ hơn
+
+large-nofilter        gcd-memory               450.1           443.5
+large-nofilter        bitmask-multi            605.2           411.7   ← nặng hơn GCD!
+large-nofilter        uint8-prealloc           134.1             5.1   ← 4.5x nhẹ hơn
+
+worst-case            gcd-memory             1,312.7         1,263.8
+worst-case            bitmask-multi          1,139.7          -448.4   ← GC ran
+worst-case            uint8-prealloc            86.6             0.0   ← 13.2x nhẹ hơn
+────────────────────────────────────────────────────────────────────
+</code></pre><p>Tại <code>worst-case</code> (200 ranges × 90 ngày): uint8-prealloc dùng <strong>86 KB heap</strong> trong khi bitmask-multi dùng <strong>1139 KB</strong> — <strong>13 lần ít hơn</strong>.</p>
+<p>Lý do rất cụ thể:</p>
+<p><strong>Map (bitmask-multi):</strong> 200 ranges × 90 ngày × 7/7 weekdays = khoảng 18.000 epoch-day entries trong Map. Mỗi entry của V8 Map tốn khoảng 60-70 bytes (8 bytes key SmallInt + 8 bytes value + hash bucket pointer + metadata). Tổng: ~18.000 × 65 bytes ≈ <strong>1.17 MB</strong> — khớp với con số 1139 KB đo được.</p>
+<p><strong>Uint8Array (uint8-prealloc):</strong> Kích thước array = <code>maxEpochDay - minEpochDay + 1</code> — tức là span từ ngày sớm nhất đến ngày muộn nhất trong toàn bộ 200 ranges. Worst-case benchmark tạo ranges ngẫu nhiên trong vài tháng, span điển hình là 100-400 ngày. Uint8Array 400 ngày = <strong>400 bytes</strong>. Cộng với overhead của array <code>ranges</code> input và các small allocations = ~86 KB tổng. Không có resize chain nào.</p>
+<p>Điểm mấu chốt: Uint8Array cost là <strong>O(span)</strong> — chỉ phụ thuộc vào khoảng thời gian bao phủ, không phụ thuộc vào số ranges hay số ngày được đếm. Map cost là <strong>O(n × d)</strong> — mỗi ngày được visit là một entry mới.</p>
+<h3 id=speedup-summary>Speedup Summary</h3>
+<pre tabindex=0><code>Speedup của uint8-prealloc so với bitmask-multi (wall-avg):
+
+tiny-nofilter   :  0.76x  ← chậm hơn (Pass 1 overhead &gt; saving ở dataset nhỏ)
+tiny-overlap    :  0.65x  ← tương tự
+small-nofilter  :  1.50x  ██
+small-overlap   :  1.49x  ██
+medium-nofilter :  1.69x  ███
+medium-overlap  :  1.63x  ███
+medium-filtered :  0.97x  ← gần bằng (weekday filter làm cả hai nhanh hơn)
+large-nofilter  :  5.01x  █████
+large-filtered  :  2.81x  ███
+worst-case      :  6.78x  ███████
+worst-overlap   :  5.82x  ██████
+</code></pre><p>Nhỏ (tiny): uint8 chậm hơn một chút vì Pass 1 + allocate array có overhead cố định, trong khi dataset quá nhỏ để bù lại. Đây là điểm trade-off rõ ràng: prealloc phù hợp với medium-to-large input, không phải cho 10 records.</p>
+<p>Lớn (large, worst): uint8 nhanh hơn <strong>6x</strong> — hoàn toàn là lợi ích từ việc loại bỏ hashmap overhead.</p>
+<h3 id=ưu-điểm>Ưu Điểm</h3>
+<p><strong>1. Loại bỏ toàn bộ chi phí của Map</strong> — không hash, không resize, không cache miss từ pointer chasing.</p>
+<p><strong>2. Memory thấp hơn đáng kể</strong> — 1 byte/entry thay vì ~50-60 bytes/entry của Map (header + hash bucket + key + value). Ở worst-case: 86 KB vs 1139 KB.</p>
+<p><strong>3. CPU-sys về 0</strong> — không còn syscall từ allocator, không còn GC pressure từ resize.</p>
+<p><strong>4. Locality tốt</strong> — Uint8Array là một vùng nhớ liên tục, CPU prefetcher load trước được. Map là pointer-based, access tùy tiện trên heap.</p>
+<h3 id=nhược-điểm>Nhược Điểm</h3>
+<p><strong>1. Cần biết trước toàn bộ ranges</strong> — phải có batch input. Không áp dụng được cho streaming (thêm range từng cái một) vì không có min/maxEpoch để pre-allocate.</p>
+<p><strong>2. Chậm hơn bitmask-multi ở input rất nhỏ</strong> — khi <code>n × span</code> nhỏ hơn khoảng 200 entries, overhead của Pass 1 lớn hơn lợi ích. Threshold thực tế: khoảng 30-50 ranges × 7-31 ngày trở lên thì mới có lợi.</p>
+<p><strong>3. Vẫn O(n × d) về time complexity</strong> — không khác về asymptotic, chỉ constant factor nhỏ hơn rất nhiều.</p>
+<hr>
+<h2 id=phần-8-kiến-thức-đại-học-ứng-dụng--hồi-đó-tôi-tưởng-chỉ-để-thi-rớt-cho-vui>Phần 8: Kiến Thức Đại Học Ứng Dụng — Hồi Đó Tôi Tưởng Chỉ Để Thi Rớt Cho Vui</h2>
 <h3 id=môn-toán-rời-rạc--lý-thuyết-số>Môn Toán Rời Rạc / Lý Thuyết Số</h3>
 <p>Cách cũ dùng <strong>Định lý phân tích nhân tử nguyên tố</strong> (Fundamental Theorem of Arithmetic): mọi số nguyên dương có duy nhất một phân tích nhân tử nguyên tố. Vì vậy, tích của các số nguyên tố phân biệt sẽ chia sẻ ước chung > 1 khi và chỉ khi chúng có chung ít nhất một thừa số nguyên tố.</p>
 <p>Đây chính xác là thứ thấy ở môn Toán rời rạc / Cơ sở Toán tin học năm 2 đại học. Hồi đó học xong thì thấy &ldquo;có biến này để làm gì?&rdquo;. Bây giờ biết rồi — để check weekday overlap trong pricing engine của khách sạn.</p>
@@ -517,13 +928,22 @@ maskA <span class=p>&amp;</span> <span class=nv>maskC</span>           <sp
 <li><strong>Đo memory</strong>: space complexity không kém time complexity</li>
 <li><strong>Dùng p95/p99 thay vì chỉ avg</strong>: tail latency quan trọng hơn average với production systems</li>
 </ul>
+<h3 id=môn-kiến-trúc-máy-tính--typedarray-và-locality-of-reference>Môn Kiến Trúc Máy Tính — TypedArray và Locality of Reference</h3>
+<p>Uint8Array là một <code>TypedArray</code> trong JavaScript — một vùng nhớ liên tục (contiguous block), không phải object heap phân tán. Đây là khái niệm xuất hiện ngay trong môn Kiến trúc máy tính khi học về cache hierarchy:</p>
+<ul>
+<li><strong>Spatial locality</strong>: nếu bạn access <code>counter[i]</code>, CPU sẽ prefetch <code>counter[i+1]</code>, <code>counter[i+2]</code>&mldr; vào L1 cache. Lần enumerate kế tiếp đã có sẵn trong cache.</li>
+<li><strong>No pointer chasing</strong>: Map là linked-node structure — mỗi get/set phải đi theo pointer từ bucket → node → value, nhảy tùy tiện trên heap. Uint8Array thì không có pointer, chỉ có <code>base + offset</code>.</li>
+</ul>
+<p>Hồi học Kiến trúc máy tính, bài giảng về cache line, cache miss luôn nghe rất abstract. Đến khi thấy <code>cpu-sys</code> của bitmask-multi là 838 µs/call còn uint8-prealloc là 0 ở cùng scenario, thì mới hiểu tại sao thầy nói &ldquo;memory access pattern là thứ quyết định performance thực tế.&rdquo;</p>
 <hr>
-<h2 id=phần-8-bài-học-rút-ra>Phần 8: Bài Học Rút Ra</h2>
+<h2 id=phần-9-bài-học-rút-ra>Phần 9: Bài Học Rút Ra</h2>
 <ul>
 <li><strong>Không có cách nào &ldquo;sai&rdquo; khi nó hoạt động đúng.</strong> GCD và bitmask đều giải quyết bài toán, chỉ khác nhau ở chỗ: một cái elegant về toán học, một cái rõ ràng về engineering.</li>
 <li><strong>Câu chuyện phụ thuộc là quan trọng nhất.</strong> Bitmask thắng vì nó không cần custom MySQL function — một thứ này có thể gây ra bug im lặng rất khó debug nếu deployment thiếu bước setup.</li>
 <li><strong>Đo trước khi kết luận.</strong> Wall time thôi là chưa đủ. CPU time cho thấy cost thuần tính toán. Heap delta cho thấy memory pressure. RSS cho thấy tác động thực lên OS. Mỗi metric kể một câu chuyện khác nhau.</li>
 <li><strong><code>bitmask-two</code> mới là winner thực sự về memory.</strong> Nhờ quick-reject O(1) với bitmask AND, nó gần như không allocate gì khi không có overlap — thay vì 1.3 MB/call của GCD ở worst-case.</li>
+<li><strong>Đặt tên hàm phản ánh đúng cơ chế.</strong> <code>bitmask-multi</code> thực ra là <code>epoch-hashmap</code> — bitmask chỉ dùng để filter, còn Map mới là nơi detect overlap. Khi tên không khớp với implementation, người đọc code sẽ hiểu sai cơ chế, và quan trọng hơn, sẽ không biết chỗ nào để tối ưu.</li>
+<li><strong>Biết trước kích thước thì pre-allocate.</strong> Khi input là batch (không phải streaming), Pass 1 để tính bounds rồi allocate chính xác một lần là pattern rất mạnh. Uint8Array pre-allocated loại bỏ toàn bộ chi phí resize chain của Map — 6x nhanh hơn và 13x ít heap hơn ở worst-case. Kỹ thuật này có trong sách giáo khoa, nhưng bạn chỉ nghĩ đến nó khi đã hiểu tại sao hashmap lại chậm.</li>
 <li><strong>Kỹ thuật cơ bản từ đại học không &ldquo;vô dụng&rdquo;.</strong> Chúng chỉ nằm yên đó, chờ đến khi bạn gặp đúng bài toán. Vấn đề là phần lớn chúng ta quên mất chúng trước khi có dịp dùng.</li>
 </ul>
 <hr>
