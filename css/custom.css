@@ -63,13 +63,31 @@ article h1 {
     color: #333;
 }
 
-/* Style code blocks */
-pre {
-    background: #111927 !important;
+/* Style code blocks - Exact HackTheBox Theme */
+pre, .chroma {
+    background: #1a2332 !important;
+    color: #a4b1cd !important;
     padding: 15px;
     border-radius: 5px;
     overflow-x: auto;
     margin: 15px 0;
+    font-family: 'Courier New', monospace;
+}
+
+/* Chroma syntax highlighting classes */
+.chroma .k, .chroma .kd, .chroma .kn, .chroma .kp, .chroma .kr, .chroma .kt { color: #9fef00; } /* Keywords - HTB Green */
+.chroma .s, .chroma .s1, .chroma .s2, .chroma .sb, .chroma .sc, .chroma .sd, .chroma .se, .chroma .sh, .chroma .si, .chroma .sx { color: #ffaf00; } /* Strings - HTB Yellow */
+.chroma .c, .chroma .c1, .chroma .cm { color: #666666; font-style: italic; } /* Comments - HTB Bright Black */
+.chroma .nf, .chroma .fm { color: #5cecc6; } /* Functions - HTB Bright Cyan */
+.chroma .n, .chroma .na, .chroma .nb, .chroma .nc, .chroma .nd, .chroma .ni, .chroma .ne, .chroma .nl, .chroma .nn, .chroma .nt, .chroma .nv { color: #a4b1cd; } /* Names - HTB Foreground */
+.chroma .o, .chroma .ow { color: #5cecc6; } /* Operators - HTB Bright Cyan */
+.chroma .m, .chroma .mf, .chroma .mh, .chroma .mi, .chroma .mo { color: #9f00ff; } /* Numbers - HTB Purple */
+.chroma .p { color: #a4b1cd; } /* Punctuation */
+
+pre code {
+    background: transparent !important;
+    color: inherit !important;
+    padding: 0;
 }
 
 code {
@@ -80,11 +98,6 @@ code {
     font-family: 'Courier New', monospace;
 }
 
-pre code {
-    background: transparent !important;
-    color: inherit !important;
-    padding: 0;
-}
 
 /* Home Page Custom Centering */
 .home-page .w {
