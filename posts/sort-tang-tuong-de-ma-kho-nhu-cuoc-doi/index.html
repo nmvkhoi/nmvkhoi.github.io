@@ -1,0 +1,166 @@
+<!doctype html><html lang=en-us><head>
+<meta charset=utf-8>
+<meta http-equiv=x-ua-compatible content="IE=edge">
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="Hôm đó tôi nhận được một ticket tưởng chừng vô hại&mldr; Buổi sáng thứ Hai, cà phê chưa kịp nguội, tôi mở Jira và thấy một ticket với tiêu đề hiền lành đến mức đáng ngờ:
+ &ldquo;Danh sách tầng hiển thị không theo thứ tự.&rdquo;
+ Chỉ vậy thôi. Không có screenshot. Không có reproduce steps. Không có gì hết.
+Tôi gõ vào máy, mở màn hình danh sách tầng lên, và thấy:">
+<title>
+Sort Tang Tuong De Ma Kho Nhu Cuoc Doi
+</title>
+<link rel="shortcut icon" type=image/x-icon href=/>
+<link rel=stylesheet href=/css/main.10776b9b86bf7e3aca232a6c5e4fbdc3baacf45c0cc3a1802995836aa1689368e8fadebd3e46fdc9ad87eab1f834f5bbb28dbb2b23fea73ae3e57c258caef3bd.css integrity="sha512-EHdrm4a/fjrKIypsXk+9w7qs9FwMw6GAKZWDaqFok2jo+t69Pkb9ya2H6rH4NPW7so27KyP+pzrj5XwljK7zvQ==">
+</head>
+<body a=light>
+<main class=page-content aria-label=Content>
+<div class=w>
+<a href=/>..</a>
+<article>
+<p class=post-meta>
+<time datetime="2026-03-06 09:17:50 +0700 +07">
+2026-03-06
+</time>
+</p>
+<h1>Sort Tang Tuong De Ma Kho Nhu Cuoc Doi</h1>
+<h2 id=hôm-đó-tôi-nhận-được-một-ticket-tưởng-chừng-vô-hại>Hôm đó tôi nhận được một ticket tưởng chừng vô hại&mldr;</h2>
+<p>Buổi sáng thứ Hai, cà phê chưa kịp nguội, tôi mở Jira và thấy một ticket với tiêu đề hiền lành đến mức đáng ngờ:</p>
+<blockquote>
+<p>&ldquo;Danh sách tầng hiển thị không theo thứ tự.&rdquo;</p>
+</blockquote>
+<p><em>Chỉ vậy thôi.</em> Không có screenshot. Không có reproduce steps. Không có gì hết.</p>
+<p>Tôi gõ vào máy, mở màn hình danh sách tầng lên, và thấy:</p>
+<pre tabindex=0><code>Tầng 10
+Tầng 15
+Tầng 2
+Tầng 22
+Tầng 3
+Tầng 7
+</code></pre><p>À. Tầng 10 đứng trước Tầng 2. Tầng 22 đứng trước Tầng 3. Kiểu như cái danh sách này đang sắp xếp theo&mldr; bảng chữ cái? Theo kiểu &ldquo;1&rdquo; &lt; &ldquo;2&rdquo; &lt; &ldquo;3&rdquo; nhưng &ldquo;10&rdquo; lại so sánh ký tự từng chữ một nên &ldquo;10&rdquo; &lt; &ldquo;2&rdquo; vì &ldquo;1&rdquo; &lt; &ldquo;2&rdquo;.</p>
+<p>Tôi nhìn cái kết quả đó một lúc. Rồi nhìn lại. Rồi uống một ngụm cà phê.</p>
+<p><em>&ldquo;Oke bro. Hôm nay mày sort."</em></p>
+<hr>
+<h2 id=vấn-đề-và-bối-cảnh>Vấn Đề Và Bối Cảnh</h2>
+<h3 id=tại-sao-lại-lộn-xộn-vậy>Tại sao lại lộn xộn vậy?</h3>
+<p>Vấn đề gốc rễ nằm ở cách database trả về dữ liệu. Mặc định, khi query danh sách tầng, kết quả được sort theo <code>createdAt DESC</code> — tức là tầng nào tạo sau thì hiện trước. Cái này hoàn toàn không có ý nghĩa gì với người dùng muốn xem &ldquo;Tầng 1 rồi đến Tầng 2 rồi đến Tầng 3&rdquo;.</p>
+<p>Nhưng khi tôi nhìn vào database thực tế, vấn đề còn phức tạp hơn nhiều. Dữ liệu từ hàng chục khách sạn khác nhau, mỗi nơi đặt tên tầng theo một kiểu riêng:</p>
+<pre tabindex=0><code>Tầng 3          ← tiếng Việt, có dấu
+Floor 02        ← tiếng Anh, có số 0 ở đầu
+FLOOR 07        ← tiếng Anh, toàn in hoa
+ZONE 11         ← kiểu zone
+ZONE11          ← cũng zone nhưng không có dấu cách
+Zone 9          ← zone nhưng viết hoa chữ đầu thôi
+Sân Tập bóng bàn S103 - 01   ← tên dài, có nhiều số
+BBQ CV Zone 2 - 08            ← tên kiểu khu BBQ
+Floor 12a       ← có suffix chữ cái
+FLOOR 12A       ← cũng 12a nhưng in hoa
+Hầm B1          ← tầng hầm
+BT4             ← biệt thự, viết tắt
+Khu Biệt thự 12 ← biệt thự, viết đầy đủ
+</code></pre><p>Nếu dùng sort mặc định theo kiểu so sánh chuỗi thông thường (<code>&lt;</code> và <code>></code>), sẽ xảy ra hai vấn đề chính:</p>
+<p><strong>Vấn đề 1 — Lexicographic sort (sort theo bảng chữ cái thuần túy):</strong></p>
+<pre tabindex=0><code>Before (sai):   Tầng 10, Tầng 15, Tầng 2, Tầng 22, Tầng 3
+After  (đúng):  Tầng 2, Tầng 3, Tầng 10, Tầng 15, Tầng 22
+</code></pre><p>Vì khi so chuỗi ký tự, <code>"10"</code> &lt; <code>"2"</code> do <code>'1'</code> &lt; <code>'2'</code>. Giống như xếp học sinh theo tên mà tên &ldquo;An&rdquo; được xếp trước &ldquo;Bảo&rdquo; nhưng &ldquo;An Khoa&rdquo; lại đứng trước &ldquo;Bảo&rdquo; vì chỉ nhìn chữ cái đầu.</p>
+<p><strong>Vấn đề 2 — Phân nhóm không nhất quán:</strong></p>
+<pre tabindex=0><code>Before (sai):  &quot;Floor 12&quot; và &quot;FLOOR 07&quot; nằm hai nhóm khác nhau
+               &quot;ZONE 11&quot; và &quot;Zone 9&quot; cũng hai nhóm khác nhau
+After  (đúng): Tất cả Floor/FLOOR/floor → một nhóm
+               Tất cả ZONE/Zone/zone → một nhóm
+</code></pre><hr>
+<h2 id=giải-pháp>Giải Pháp</h2>
+<h3 id=ý-tưởng-chụp-hình-khuôn-của-tên-tầng>Ý tưởng: &ldquo;Chụp hình khuôn&rdquo; của tên tầng</h3>
+<p>Thay vì cố gắng viết một danh sách prefix (&ldquo;à Floor thì strip ra, Tầng thì strip ra&mldr;"), chúng tôi nghĩ theo hướng khác: <strong>tự động phát hiện pattern</strong>.</p>
+<p>Ý tưởng đơn giản: thay tất cả các con số bằng ký hiệu <code>#</code>. Thế là mọi tên tầng đều có một &ldquo;khuôn&rdquo;:</p>
+<pre tabindex=0><code>&quot;Tầng 3&quot;    → khuôn: &quot;tầng#&quot;
+&quot;Tầng 22&quot;   → khuôn: &quot;tầng#&quot;
+&quot;Floor 12&quot;  → khuôn: &quot;floor#&quot;
+&quot;FLOOR 07&quot;  → khuôn: &quot;floor#&quot;   (sau khi lowercase)
+&quot;ZONE 11&quot;   → khuôn: &quot;zone#&quot;
+&quot;ZONE11&quot;    → khuôn: &quot;zone#&quot;    (space quanh # được collapse)
+&quot;Sân Tập bóng bàn S103 - 01&quot; → khuôn: &quot;sân tập bóng bàn s#-#&quot;
+&quot;BBQ CV Zone 2 - 08&quot;         → khuôn: &quot;bbq cv zone#-#&quot;
+</code></pre><p>Hai cái tên cùng khuôn → cùng nhóm. Đơn giản thế thôi. Không cần hardcode bất cứ từ nào.</p>
+<p>Đây là thuật toán <code>extractSegments</code>:</p>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#66d9ef>function</span> <span style=color:#a6e22e>extractSegments</span>(<span style=color:#a6e22e>str</span>) {
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>normalized</span> <span style=color:#f92672>=</span> String(<span style=color:#a6e22e>str</span> <span style=color:#f92672>||</span> <span style=color:#e6db74>&#39;&#39;</span>).<span style=color:#a6e22e>trim</span>().<span style=color:#a6e22e>replace</span>(<span style=color:#e6db74>/\s+/g</span>, <span style=color:#e6db74>&#39; &#39;</span>);
+
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>parts</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>normalized</span>.<span style=color:#a6e22e>split</span>(<span style=color:#e6db74>/(\d+)/</span>);
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>nums</span>        <span style=color:#f92672>=</span> [];
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>rawTokens</span>   <span style=color:#f92672>=</span> [];
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>lowerTokens</span> <span style=color:#f92672>=</span> [];
+
+  <span style=color:#a6e22e>parts</span>.<span style=color:#a6e22e>forEach</span>((<span style=color:#a6e22e>part</span>, <span style=color:#a6e22e>i</span>) =&gt; {
+    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>i</span> <span style=color:#f92672>%</span> <span style=color:#ae81ff>2</span> <span style=color:#f92672>===</span> <span style=color:#ae81ff>1</span>) {
+      <span style=color:#a6e22e>nums</span>.<span style=color:#a6e22e>push</span>(parseInt(<span style=color:#a6e22e>part</span>, <span style=color:#ae81ff>10</span>));      <span style=color:#75715e>// giữ số nguyên
+</span><span style=color:#75715e></span>    } <span style=color:#66d9ef>else</span> {
+      <span style=color:#a6e22e>rawTokens</span>.<span style=color:#a6e22e>push</span>(<span style=color:#a6e22e>part</span>.<span style=color:#a6e22e>trim</span>());        <span style=color:#75715e>// giữ nguyên case
+</span><span style=color:#75715e></span>      <span style=color:#a6e22e>lowerTokens</span>.<span style=color:#a6e22e>push</span>(<span style=color:#a6e22e>part</span>.<span style=color:#a6e22e>toLowerCase</span>().<span style=color:#a6e22e>trim</span>()); <span style=color:#75715e>// lowercase để group
+</span><span style=color:#75715e></span>    }
+  });
+
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>pattern</span>  <span style=color:#f92672>=</span> <span style=color:#a6e22e>rawTokens</span>.<span style=color:#a6e22e>join</span>(<span style=color:#e6db74>&#39;#&#39;</span>).<span style=color:#a6e22e>replace</span>(<span style=color:#e6db74>/\s*#\s*/g</span>, <span style=color:#e6db74>&#39;#&#39;</span>);
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>groupKey</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>lowerTokens</span>.<span style=color:#a6e22e>join</span>(<span style=color:#e6db74>&#39;#&#39;</span>).<span style=color:#a6e22e>replace</span>(<span style=color:#e6db74>/\s*#\s*/g</span>, <span style=color:#e6db74>&#39;#&#39;</span>)
+                              .<span style=color:#a6e22e>replace</span>(<span style=color:#e6db74>/#[a-z]$/</span>, <span style=color:#e6db74>&#39;#&#39;</span>); <span style=color:#75715e>// &#34;floor#a&#34; → &#34;floor#&#34;
+</span><span style=color:#75715e></span>
+  <span style=color:#66d9ef>return</span> { <span style=color:#a6e22e>pattern</span>, <span style=color:#a6e22e>groupKey</span>, <span style=color:#a6e22e>nums</span> };
+}
+</code></pre></div><p>Chú ý cái trick nhỏ ở cuối: <code>replace(/#[a-z]$/, '#')</code> — strip một chữ cái cuối sau <code>#</code>. Vì thế <code>"Floor 12a"</code>, <code>"Floor 12b"</code>, <code>"FLOOR 12A"</code> đều về cùng nhóm <code>"floor#"</code> thay vì tạo ra ba nhóm riêng.</p>
+<h3 id=ba-bước-sort>Ba bước sort</h3>
+<p>Sau khi có khuôn rồi, sort theo ba bước:</p>
+<pre tabindex=0><code>1. So groupKey  → &quot;bbq cv zone#-#&quot; &lt; &quot;floor#&quot; &lt; &quot;tầng#&quot; &lt; &quot;zone#&quot;
+                  (sắp xếp theo alphabet, nhóm &quot;B&quot; trước nhóm &quot;F&quot; trước &quot;T&quot;...)
+
+2. So số        → Tầng 2 &lt; Tầng 3 &lt; Tầng 10 &lt; Tầng 22
+                  (so số nguyên, không phải chuỗi)
+
+3. Tiebreak     → &quot;Floor 12&quot; &lt; &quot;FLOOR 12&quot;
+                  (case-sensitive tiebreak nếu cùng nhóm + cùng số)
+</code></pre><h3 id=vấn-đề-tiếng-việt-và-intlcollator>Vấn đề tiếng Việt và Intl.Collator</h3>
+<p>Đây là chỗ tinh tế nhất. JavaScript thuần dùng <code>&lt;</code> và <code>></code> để so chuỗi theo Unicode code point. Nhưng với tiếng Việt, điều đó không đúng:</p>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#e6db74>&#34;bóng&#34;</span> <span style=color:#f92672>&lt;</span> <span style=color:#e6db74>&#34;bong&#34;</span>   <span style=color:#75715e>// → false  (sai về mặt ngữ nghĩa tiếng Việt)
+</span><span style=color:#75715e></span><span style=color:#e6db74>&#34;FLOOR&#34;</span> <span style=color:#f92672>&lt;</span> <span style=color:#e6db74>&#34;floor&#34;</span> <span style=color:#75715e>// → false  (vì &#39;F&#39; có code point nhỏ hơn &#39;f&#39;)
+</span></code></pre></div><p>Giải pháp: dùng <code>Intl.Collator</code> — API chuẩn của JavaScript để so chuỗi theo ngôn ngữ cụ thể.</p>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#75715e>// Cho grouping: không phân biệt HOA/thường, nhưng phân biệt dấu
+</span><span style=color:#75715e></span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>COLLATOR_GROUP</span> <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> <span style=color:#a6e22e>Intl</span>.<span style=color:#a6e22e>Collator</span>(<span style=color:#e6db74>&#39;vi&#39;</span>, { <span style=color:#a6e22e>sensitivity</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;accent&#39;</span> });
+<span style=color:#75715e>// → &#34;FLOOR&#34; == &#34;floor&#34;, nhưng &#34;Bóng&#34; != &#34;Bong&#34;
+</span><span style=color:#75715e></span>
+<span style=color:#75715e>// Cho tiebreak: phân biệt cả HOA/thường lẫn dấu
+</span><span style=color:#75715e></span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>COLLATOR_TIEBREAK</span> <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> <span style=color:#a6e22e>Intl</span>.<span style=color:#a6e22e>Collator</span>(<span style=color:#e6db74>&#39;vi&#39;</span>, { <span style=color:#a6e22e>sensitivity</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;variant&#39;</span> });
+<span style=color:#75715e>// → &#34;Floor 12&#34; &lt; &#34;FLOOR 12&#34;
+</span></code></pre></div><p>Hai collator được tạo một lần ở module level (không tạo lại trong mỗi lần so sánh) để tránh tốn performance.</p>
+<h3 id=pros-vs-cons>Pros vs Cons</h3>
+<p><strong>Pros:</strong></p>
+<ul>
+<li>Tự động phát hiện pattern — không cần hardcode &ldquo;Floor&rdquo;, &ldquo;Tầng&rdquo;, &ldquo;Zone&rdquo;&mldr; Khách sạn nào đặt tên kiểu gì cũng sort đúng</li>
+<li>Hoạt động cho cả tiếng Việt, tiếng Anh, lẫn ký hiệu đặc biệt</li>
+<li>Case-insensitive cho grouping nhưng case-sensitive cho tiebreak</li>
+<li>Dấu tiếng Việt được xử lý đúng qua <code>Intl.Collator('vi')</code></li>
+</ul>
+<p><strong>Cons:</strong></p>
+<ul>
+<li>Chỉ sort phía application (sau khi đã fetch hết dữ liệu từ DB), không thể dùng làm ORDER BY trong SQL</li>
+<li>Vì vậy phải fetch toàn bộ danh sách (limit 99999) rồi sort trong memory — với dữ liệu thực tế thì ổn, nhưng nếu số lượng tầng lên đến hàng triệu thì cần xem lại</li>
+<li>Logic groupKey <code>replace(/#[a-z]$/, '#')</code> chỉ strip một ký tự cuối — nếu suffix là <code>12ab</code> thì không gộp được</li>
+</ul>
+<hr>
+<h2 id=kiến-thức-đại-học-ứng-dụng>Kiến Thức Đại Học Ứng Dụng</h2>
+<p><strong>Môn: Cấu trúc dữ liệu và Giải thuật</strong></p>
+<p>Bài toán sort này thực ra là bài toán <strong>custom comparator</strong> — một khái niệm rất cơ bản trong môn Giải thuật. Thầy dạy: &ldquo;Muốn sort theo tiêu chí nào thì viết comparator trả về số âm, số 0, hoặc số dương.&rdquo; Hồi đó tôi gật đầu, thi xong quên luôn.</p>
+<p>Nhưng đây chính là bài toán đó — comparator của chúng tôi không đơn giản là <code>a - b</code>, mà là một hàm 3 bước với priority: group trước, số sau, tiebreak cuối. Đây là ứng dụng thực tế của <strong>multi-key sort</strong> hay còn gọi là <strong>lexicographic order trên tuple</strong> — so tuple <code>(groupKey, nums[], pattern)</code> theo thứ tự ưu tiên.</p>
+<p><strong>Môn: Lý thuyết ngôn ngữ hình thức (Automata)</strong></p>
+<p>Hàm <code>extractSegments</code> thực ra là một dạng <strong>tokenizer</strong> đơn giản: tách chuỗi ra thành xen kẽ text token và number token bằng regex <code>split(/(\d+)/)</code>. Đây chính xác là bước &ldquo;lexical analysis&rdquo; mà môn Automata dạy. Hồi đó tôi tưởng chỉ dùng để viết compiler. Ai ngờ sort tầng khách sạn cũng cần đến.</p>
+<hr>
+<h2 id=bài-học-rút-ra>Bài Học Rút Ra</h2>
+<ul>
+<li><strong>Ticket &ldquo;nhỏ&rdquo; không bao giờ nhỏ.</strong> &ldquo;Danh sách tầng hiển thị không theo thứ tự&rdquo; nghe thì đơn giản nhưng ẩn sau đó là cả một mớ dữ liệu không nhất quán từ hàng trăm khách sạn.</li>
+<li><strong>Đừng hardcode.</strong> Nếu viết <code>if name.startsWith("Tầng")</code> hay <code>if name.startsWith("Floor")</code> thì sẽ miss hàng chục pattern khác. Tự động phát hiện pattern tốt hơn là liệt kê thủ công.</li>
+<li><strong><code>&lt;</code> và <code>></code> trong JavaScript là bẫy với Unicode.</strong> Với tiếng Việt (và nhiều ngôn ngữ khác), hãy dùng <code>Intl.Collator</code>. Nó tồn tại chính xác vì lý do này.</li>
+<li><strong>Tạo collator một lần, dùng nhiều lần.</strong> <code>new Intl.Collator(...)</code> không rẻ. Tạo ở module level, không tạo trong vòng lặp.</li>
+<li><strong>Cà phê buổi sáng thứ Hai là vũ khí bí mật.</strong> Không có nó, ticket này có thể mất cả ngày.</li>
+</ul>
+<hr>
+</article>
+</div>
+</main>
+</body></html>
