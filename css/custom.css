@@ -38,7 +38,7 @@ ul ul li {
 
 /* Style links */
 a {
-    color: #007acc;
+    color: #0000FF;
     text-decoration: none;
 }
 
@@ -65,7 +65,7 @@ article h1 {
 
 /* Style code blocks */
 pre {
-    background: #f4f4f4;
+    background: #111927 !important;
     padding: 15px;
     border-radius: 5px;
     overflow-x: auto;
@@ -73,16 +73,16 @@ pre {
 }
 
 code {
-    background: #eee8d5;
-    color: #586e75;
+    background: #f0f0f0;
+    color: #333;
     padding: 2px 4px;
     border-radius: 3px;
     font-family: 'Courier New', monospace;
 }
 
 pre code {
-    background: transparent;
-    color: inherit;
+    background: transparent !important;
+    color: inherit !important;
     padding: 0;
 }
 

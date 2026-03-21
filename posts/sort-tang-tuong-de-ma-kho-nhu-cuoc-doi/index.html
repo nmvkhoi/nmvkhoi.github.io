@@ -83,28 +83,28 @@ After  (đúng): Tất cả Floor/FLOOR/floor → một nhóm
 &quot;BBQ CV Zone 2 - 08&quot;         → khuôn: &quot;bbq cv zone#-#&quot;
 </code></pre><p>Hai cái tên cùng khuôn → cùng nhóm. Đơn giản thế thôi. Không cần hardcode bất cứ từ nào.</p>
 <p>Đây là thuật toán <code>extractSegments</code>:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#859900>function</span> <span style=color:#268bd2>extractSegments</span>(<span style=color:#268bd2>str</span>) {
-  <span style=color:#859900>const</span> <span style=color:#268bd2>normalized</span> = <span style=color:#cb4b16>String</span>(<span style=color:#268bd2>str</span> || <span style=color:#2aa198>&#39;&#39;</span>).<span style=color:#268bd2>trim</span>().<span style=color:#268bd2>replace</span>(<span style=color:#2aa198>/\s+/g</span>, <span style=color:#2aa198>&#39; &#39;</span>);
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#66d9ef>function</span> <span style=color:#a6e22e>extractSegments</span>(<span style=color:#a6e22e>str</span>) {
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>normalized</span> <span style=color:#f92672>=</span> String(<span style=color:#a6e22e>str</span> <span style=color:#f92672>||</span> <span style=color:#e6db74>&#39;&#39;</span>).<span style=color:#a6e22e>trim</span>().<span style=color:#a6e22e>replace</span>(<span style=color:#e6db74>/\s+/g</span>, <span style=color:#e6db74>&#39; &#39;</span>);
 
-  <span style=color:#859900>const</span> <span style=color:#268bd2>parts</span> = <span style=color:#268bd2>normalized</span>.<span style=color:#268bd2>split</span>(<span style=color:#2aa198>/(\d+)/</span>);
-  <span style=color:#859900>const</span> <span style=color:#268bd2>nums</span>        = [];
-  <span style=color:#859900>const</span> <span style=color:#268bd2>rawTokens</span>   = [];
-  <span style=color:#859900>const</span> <span style=color:#268bd2>lowerTokens</span> = [];
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>parts</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>normalized</span>.<span style=color:#a6e22e>split</span>(<span style=color:#e6db74>/(\d+)/</span>);
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>nums</span>        <span style=color:#f92672>=</span> [];
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>rawTokens</span>   <span style=color:#f92672>=</span> [];
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>lowerTokens</span> <span style=color:#f92672>=</span> [];
 
-  <span style=color:#268bd2>parts</span>.<span style=color:#268bd2>forEach</span>((<span style=color:#268bd2>part</span>, <span style=color:#268bd2>i</span>) =&gt; {
-    <span style=color:#859900>if</span> (<span style=color:#268bd2>i</span> % <span style=color:#2aa198;font-weight:700>2</span> === <span style=color:#2aa198;font-weight:700>1</span>) {
-      <span style=color:#268bd2>nums</span>.<span style=color:#268bd2>push</span>(<span style=color:#cb4b16>parseInt</span>(<span style=color:#268bd2>part</span>, <span style=color:#2aa198;font-weight:700>10</span>));      <span style=color:#93a1a1;font-style:italic>// giữ số nguyên
-</span><span style=color:#93a1a1;font-style:italic></span>    } <span style=color:#859900>else</span> {
-      <span style=color:#268bd2>rawTokens</span>.<span style=color:#268bd2>push</span>(<span style=color:#268bd2>part</span>.<span style=color:#268bd2>trim</span>());        <span style=color:#93a1a1;font-style:italic>// giữ nguyên case
-</span><span style=color:#93a1a1;font-style:italic></span>      <span style=color:#268bd2>lowerTokens</span>.<span style=color:#268bd2>push</span>(<span style=color:#268bd2>part</span>.<span style=color:#268bd2>toLowerCase</span>().<span style=color:#268bd2>trim</span>()); <span style=color:#93a1a1;font-style:italic>// lowercase để group
-</span><span style=color:#93a1a1;font-style:italic></span>    }
+  <span style=color:#a6e22e>parts</span>.<span style=color:#a6e22e>forEach</span>((<span style=color:#a6e22e>part</span>, <span style=color:#a6e22e>i</span>) =&gt; {
+    <span style=color:#66d9ef>if</span> (<span style=color:#a6e22e>i</span> <span style=color:#f92672>%</span> <span style=color:#ae81ff>2</span> <span style=color:#f92672>===</span> <span style=color:#ae81ff>1</span>) {
+      <span style=color:#a6e22e>nums</span>.<span style=color:#a6e22e>push</span>(parseInt(<span style=color:#a6e22e>part</span>, <span style=color:#ae81ff>10</span>));      <span style=color:#75715e>// giữ số nguyên
+</span><span style=color:#75715e></span>    } <span style=color:#66d9ef>else</span> {
+      <span style=color:#a6e22e>rawTokens</span>.<span style=color:#a6e22e>push</span>(<span style=color:#a6e22e>part</span>.<span style=color:#a6e22e>trim</span>());        <span style=color:#75715e>// giữ nguyên case
+</span><span style=color:#75715e></span>      <span style=color:#a6e22e>lowerTokens</span>.<span style=color:#a6e22e>push</span>(<span style=color:#a6e22e>part</span>.<span style=color:#a6e22e>toLowerCase</span>().<span style=color:#a6e22e>trim</span>()); <span style=color:#75715e>// lowercase để group
+</span><span style=color:#75715e></span>    }
   });
 
-  <span style=color:#859900>const</span> <span style=color:#268bd2>pattern</span>  = <span style=color:#268bd2>rawTokens</span>.<span style=color:#268bd2>join</span>(<span style=color:#2aa198>&#39;#&#39;</span>).<span style=color:#268bd2>replace</span>(<span style=color:#2aa198>/\s*#\s*/g</span>, <span style=color:#2aa198>&#39;#&#39;</span>);
-  <span style=color:#859900>const</span> <span style=color:#268bd2>groupKey</span> = <span style=color:#268bd2>lowerTokens</span>.<span style=color:#268bd2>join</span>(<span style=color:#2aa198>&#39;#&#39;</span>).<span style=color:#268bd2>replace</span>(<span style=color:#2aa198>/\s*#\s*/g</span>, <span style=color:#2aa198>&#39;#&#39;</span>)
-                              .<span style=color:#268bd2>replace</span>(<span style=color:#2aa198>/#[a-z]$/</span>, <span style=color:#2aa198>&#39;#&#39;</span>); <span style=color:#93a1a1;font-style:italic>// &#34;floor#a&#34; → &#34;floor#&#34;
-</span><span style=color:#93a1a1;font-style:italic></span>
-  <span style=color:#859900>return</span> { <span style=color:#268bd2>pattern</span>, <span style=color:#268bd2>groupKey</span>, <span style=color:#268bd2>nums</span> };
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>pattern</span>  <span style=color:#f92672>=</span> <span style=color:#a6e22e>rawTokens</span>.<span style=color:#a6e22e>join</span>(<span style=color:#e6db74>&#39;#&#39;</span>).<span style=color:#a6e22e>replace</span>(<span style=color:#e6db74>/\s*#\s*/g</span>, <span style=color:#e6db74>&#39;#&#39;</span>);
+  <span style=color:#66d9ef>const</span> <span style=color:#a6e22e>groupKey</span> <span style=color:#f92672>=</span> <span style=color:#a6e22e>lowerTokens</span>.<span style=color:#a6e22e>join</span>(<span style=color:#e6db74>&#39;#&#39;</span>).<span style=color:#a6e22e>replace</span>(<span style=color:#e6db74>/\s*#\s*/g</span>, <span style=color:#e6db74>&#39;#&#39;</span>)
+                              .<span style=color:#a6e22e>replace</span>(<span style=color:#e6db74>/#[a-z]$/</span>, <span style=color:#e6db74>&#39;#&#39;</span>); <span style=color:#75715e>// &#34;floor#a&#34; → &#34;floor#&#34;
+</span><span style=color:#75715e></span>
+  <span style=color:#66d9ef>return</span> { <span style=color:#a6e22e>pattern</span>, <span style=color:#a6e22e>groupKey</span>, <span style=color:#a6e22e>nums</span> };
 }
 </code></pre></div><p>Chú ý cái trick nhỏ ở cuối: <code>replace(/#[a-z]$/, '#')</code> — strip một chữ cái cuối sau <code>#</code>. Vì thế <code>"Floor 12a"</code>, <code>"Floor 12b"</code>, <code>"FLOOR 12A"</code> đều về cùng nhóm <code>"floor#"</code> thay vì tạo ra ba nhóm riêng.</p>
 <h3 id=ba-bước-sort>Ba bước sort</h3>
@@ -119,16 +119,16 @@ After  (đúng): Tất cả Floor/FLOOR/floor → một nhóm
                   (case-sensitive tiebreak nếu cùng nhóm + cùng số)
 </code></pre><h3 id=vấn-đề-tiếng-việt-và-intlcollator>Vấn đề tiếng Việt và Intl.Collator</h3>
 <p>Đây là chỗ tinh tế nhất. JavaScript thuần dùng <code>&lt;</code> và <code>></code> để so chuỗi theo Unicode code point. Nhưng với tiếng Việt, điều đó không đúng:</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#2aa198>&#34;bóng&#34;</span> &lt; <span style=color:#2aa198>&#34;bong&#34;</span>   <span style=color:#93a1a1;font-style:italic>// → false  (sai về mặt ngữ nghĩa tiếng Việt)
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#2aa198>&#34;FLOOR&#34;</span> &lt; <span style=color:#2aa198>&#34;floor&#34;</span> <span style=color:#93a1a1;font-style:italic>// → false  (vì &#39;F&#39; có code point nhỏ hơn &#39;f&#39;)
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#e6db74>&#34;bóng&#34;</span> <span style=color:#f92672>&lt;</span> <span style=color:#e6db74>&#34;bong&#34;</span>   <span style=color:#75715e>// → false  (sai về mặt ngữ nghĩa tiếng Việt)
+</span><span style=color:#75715e></span><span style=color:#e6db74>&#34;FLOOR&#34;</span> <span style=color:#f92672>&lt;</span> <span style=color:#e6db74>&#34;floor&#34;</span> <span style=color:#75715e>// → false  (vì &#39;F&#39; có code point nhỏ hơn &#39;f&#39;)
 </span></code></pre></div><p>Giải pháp: dùng <code>Intl.Collator</code> — API chuẩn của JavaScript để so chuỗi theo ngôn ngữ cụ thể.</p>
-<div class=highlight><pre tabindex=0 style=color:#586e75;background-color:#eee8d5;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#93a1a1;font-style:italic>// Cho grouping: không phân biệt HOA/thường, nhưng phân biệt dấu
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>COLLATOR_GROUP</span> = <span style=color:#859900>new</span> <span style=color:#268bd2>Intl</span>.<span style=color:#268bd2>Collator</span>(<span style=color:#2aa198>&#39;vi&#39;</span>, { <span style=color:#268bd2>sensitivity</span>: <span style=color:#2aa198>&#39;accent&#39;</span> });
-<span style=color:#93a1a1;font-style:italic>// → &#34;FLOOR&#34; == &#34;floor&#34;, nhưng &#34;Bóng&#34; != &#34;Bong&#34;
-</span><span style=color:#93a1a1;font-style:italic></span>
-<span style=color:#93a1a1;font-style:italic>// Cho tiebreak: phân biệt cả HOA/thường lẫn dấu
-</span><span style=color:#93a1a1;font-style:italic></span><span style=color:#859900>const</span> <span style=color:#268bd2>COLLATOR_TIEBREAK</span> = <span style=color:#859900>new</span> <span style=color:#268bd2>Intl</span>.<span style=color:#268bd2>Collator</span>(<span style=color:#2aa198>&#39;vi&#39;</span>, { <span style=color:#268bd2>sensitivity</span>: <span style=color:#2aa198>&#39;variant&#39;</span> });
-<span style=color:#93a1a1;font-style:italic>// → &#34;Floor 12&#34; &lt; &#34;FLOOR 12&#34;
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-javascript data-lang=javascript><span style=color:#75715e>// Cho grouping: không phân biệt HOA/thường, nhưng phân biệt dấu
+</span><span style=color:#75715e></span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>COLLATOR_GROUP</span> <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> <span style=color:#a6e22e>Intl</span>.<span style=color:#a6e22e>Collator</span>(<span style=color:#e6db74>&#39;vi&#39;</span>, { <span style=color:#a6e22e>sensitivity</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;accent&#39;</span> });
+<span style=color:#75715e>// → &#34;FLOOR&#34; == &#34;floor&#34;, nhưng &#34;Bóng&#34; != &#34;Bong&#34;
+</span><span style=color:#75715e></span>
+<span style=color:#75715e>// Cho tiebreak: phân biệt cả HOA/thường lẫn dấu
+</span><span style=color:#75715e></span><span style=color:#66d9ef>const</span> <span style=color:#a6e22e>COLLATOR_TIEBREAK</span> <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> <span style=color:#a6e22e>Intl</span>.<span style=color:#a6e22e>Collator</span>(<span style=color:#e6db74>&#39;vi&#39;</span>, { <span style=color:#a6e22e>sensitivity</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;variant&#39;</span> });
+<span style=color:#75715e>// → &#34;Floor 12&#34; &lt; &#34;FLOOR 12&#34;
 </span></code></pre></div><p>Hai collator được tạo một lần ở module level (không tạo lại trong mỗi lần so sánh) để tránh tốn performance.</p>
 <h3 id=pros-vs-cons>Pros vs Cons</h3>
 <p><strong>Pros:</strong></p>
