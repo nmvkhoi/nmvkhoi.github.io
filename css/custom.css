@@ -65,7 +65,7 @@ article h1 {
 
 /* Style code blocks */
 pre {
-    background: #272822;
+    background: #f6f8fa;
     padding: 15px;
     border-radius: 5px;
     overflow-x: auto;
@@ -73,7 +73,7 @@ pre {
 }
 
 code {
-    background: #f4f4f4;
+    background: #f6f8fa;
     padding: 2px 4px;
     border-radius: 3px;
     font-family: 'Courier New', monospace;
