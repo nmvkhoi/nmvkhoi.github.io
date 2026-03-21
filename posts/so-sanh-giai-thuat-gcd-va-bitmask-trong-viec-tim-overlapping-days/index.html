@@ -466,16 +466,16 @@ worst       │ ████████...███████████
   <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
 <span class=p>}</span>
 </code></pre></div><p>Với logic <code>maskA & maskB</code>:</p>
-<pre tabindex=0><code>weekdays A = [2, 4, 6]  → maskA = 0b0101010 = 42
-weekdays B = [4, 5, 6]  → maskB = 0b1011000 = 88
-maskA &amp; maskB           = 0b0001000 = 8  ← bit3 = thứ 4
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>weekdays <span class=nv>A</span> <span class=o>=</span> <span class=o>[</span>2, 4, 6<span class=o>]</span>  → <span class=nv>maskA</span> <span class=o>=</span> <span class=nv>0b0101010</span> <span class=o>=</span> <span class=m>42</span>
+weekdays <span class=nv>B</span> <span class=o>=</span> <span class=o>[</span>4, 5, 6<span class=o>]</span>  → <span class=nv>maskB</span> <span class=o>=</span> <span class=nv>0b1011000</span> <span class=o>=</span> <span class=m>88</span>
+maskA <span class=p>&amp;</span> <span class=nv>maskB</span>           <span class=o>=</span> <span class=nv>0b0001000</span> <span class=o>=</span> 8  ← <span class=nv>bit3</span> <span class=o>=</span> thứ <span class=m>4</span>
 → có ngày chung, enumerate để tìm ngày đầu tiên
 
-weekdays A = [2, 4, 6]  → maskA = 0b0101010 = 42
-weekdays C = [3, 5, 7]  → maskC = 0b1010100 = 84
-maskA &amp; maskC           = 0b0000000 = 0
-→ không có ngày chung → return null ngay, không enumerate gì cả
-</code></pre><hr>
+weekdays <span class=nv>A</span> <span class=o>=</span> <span class=o>[</span>2, 4, 6<span class=o>]</span>  → <span class=nv>maskA</span> <span class=o>=</span> <span class=nv>0b0101010</span> <span class=o>=</span> <span class=m>42</span>
+weekdays <span class=nv>C</span> <span class=o>=</span> <span class=o>[</span>3, 5, 7<span class=o>]</span>  → <span class=nv>maskC</span> <span class=o>=</span> <span class=nv>0b1010100</span> <span class=o>=</span> <span class=m>84</span>
+maskA <span class=p>&amp;</span> <span class=nv>maskC</span>           <span class=o>=</span> <span class=nv>0b0000000</span> <span class=o>=</span> <span class=m>0</span>
+→ không có ngày chung → <span class=k>return</span> null ngay, không enumerate gì cả
+</code></pre></div><hr>
 <h3 id=ưu-điểm-của-approach-bitmask>Ưu điểm của approach Bitmask</h3>
 <p><strong>1. Đơn giản và đọc được ngay</strong></p>
 <p><code>maskA & maskB === 0</code> → &ldquo;hai tập weekday này không có phần tử chung&rdquo; — ai cũng hiểu, kể cả người mới.</p>
