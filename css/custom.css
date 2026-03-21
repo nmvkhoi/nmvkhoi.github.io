@@ -73,10 +73,17 @@ pre {
 }
 
 code {
-    background: #f4f4f4;
+    background: #eee8d5;
+    color: #586e75;
     padding: 2px 4px;
     border-radius: 3px;
     font-family: 'Courier New', monospace;
+}
+
+pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
 }
 
 /* Home Page Custom Centering */
