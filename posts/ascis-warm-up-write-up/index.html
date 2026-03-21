@@ -1,15 +1,18 @@
-<!doctype html><html lang=en-us>
-<head>
-<meta name=generator content="Hugo 0.92.2">
+<!doctype html><html lang=en-us><head>
 <meta charset=utf-8>
 <meta http-equiv=x-ua-compatible content="IE=edge">
 <meta name=viewport content="width=device-width,initial-scale=1">
-<title>ASCIS warm up 2023 write up - nmvkhoi</title>
+<meta name=description content="Introduction This is my write up for ASCIS warm up CTF 2021. I will only write about the pwn challenges.
+Challenge pwn 1 At first, i will check the properties of the binary file with checksec.
+checksec --file=pwn As you can see, the file is not protected by stack canary. So we can use buffer overflow to crack the program. I will use ghidra to decompile the binary file.
+void main(EVP_PKEY_CTX *param_1) { int local_c; init(param_1); puts(&#34;Welcome to the Asean student\'s contest!">
+<title>
+ASCIS warm up 2023 write up
+</title>
 <link rel="shortcut icon" type=image/x-icon href=/>
-<link rel=stylesheet href=/css/main.css>
-<link rel=stylesheet href=/css/custom.css>
+<link rel=stylesheet href=/css/main.10776b9b86bf7e3aca232a6c5e4fbdc3baacf45c0cc3a1802995836aa1689368e8fadebd3e46fdc9ad87eab1f834f5bbb28dbb2b23fea73ae3e57c258caef3bd.css integrity="sha512-EHdrm4a/fjrKIypsXk+9w7qs9FwMw6GAKZWDaqFok2jo+t69Pkb9ya2H6rH4NPW7so27KyP+pzrj5XwljK7zvQ==">
 </head>
-<body>
+<body a=auto>
 <main class=page-content aria-label=Content>
 <div class=w>
 <a href=/>..</a>
@@ -182,6 +185,4 @@ p<span style=color:#f92672>.</span>interactive()
 </article>
 </div>
 </main>
-<script src=/js/custom.js></script>
-</body>
-</html>
+</body></html>
